@@ -41,6 +41,7 @@
         "underscore": "^1.8.3"
     },
     "dependencies": {
+        "lodash": "^4.17.21",
         "@babel/eslint-parser": "^7.26.5",
         "@codemirror/autocomplete": "^6.18.4",
         "@codemirror/lang-javascript": "^6.2.2",
