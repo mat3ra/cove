@@ -41,7 +41,6 @@
         "underscore": "^1.8.3"
     },
     "dependencies": {
-        "lodash": "^4.17.21",
         "@babel/eslint-parser": "^7.26.5",
         "@codemirror/autocomplete": "^6.18.4",
         "@codemirror/lang-javascript": "^6.2.2",
@@ -69,6 +68,7 @@
         "jszip": "^3.10.1",
         "jszip-utils": "0.1.0",
         "katex": "^0.16.21",
+        "lodash": "^4.17.21",
         "notistack": "^3.0.1",
         "prismjs": "^1.29.0",
         "react-beautiful-dnd": "^13.1.1",
@@ -118,6 +118,7 @@
         "react": "^17.0.2",
         "react-dom": "^17.0.2",
         "react-json-view": "^1.21.3",
+        "tsx": "^4.23.0",
         "underscore": "^1.13.7"
     },
     "engines": {

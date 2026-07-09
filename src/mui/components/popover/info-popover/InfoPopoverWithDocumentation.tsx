@@ -1,4 +1,5 @@
 import React from "react";
+
 import InfoPopover from "./InfoPopover";
 
 export interface InfoPopoverWithDocumentationProps {
