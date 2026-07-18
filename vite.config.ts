@@ -9,8 +9,8 @@ import { defineConfig } from "vite";
  */
 export default defineConfig({
     // Matches the repo name so assets resolve under the GitHub Pages
-    // subpath (mat3ra.github.io/cove.js/). Harmless for local dev.
-    base: "/cove.js/",
+    // subpath (mat3ra.github.io/cove/). Harmless for local dev.
+    base: "/cove/",
     plugins: [react()],
     build: {
         outDir: "build",
