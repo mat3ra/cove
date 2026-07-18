@@ -64,7 +64,7 @@ export default function GalleryApp() {
                 <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
                     <Toolbar sx={{ gap: 2 }}>
                         <Typography variant="h6" sx={{ flexGrow: 1 }}>
-                            cove.js — Component Gallery
+                            cove — Component Gallery
                         </Typography>
                         <TextField
                             select
@@ -79,7 +79,7 @@ export default function GalleryApp() {
                             ))}
                         </TextField>
                         <Link
-                            href="https://github.com/mat3ra/cove.js"
+                            href="https://github.com/mat3ra/cove"
                             color="inherit"
                             underline="hover"
                             target="_blank"

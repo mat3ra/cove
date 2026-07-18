@@ -1,5 +1,5 @@
 {
-    "name": "@mat3ra/cove.js",
+    "name": "@mat3ra/cove",
     "version": "0.0.0",
     "description": "Cove.js - reusable components",
     "scripts": {
@@ -14,7 +14,7 @@
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/mat3ra/cove.js.git"
+        "url": "https://github.com/mat3ra/cove.git"
     },
     "main": "dist/index.js",
     "files": [
@@ -24,10 +24,10 @@
     ],
     "author": "Exabyte Inc.",
     "bugs": {
-        "url": "https://github.com/mat3ra/cove.js/issues"
+        "url": "https://github.com/mat3ra/cove/issues"
     },
     "license": "Apache-2.0",
-    "homepage": "https://github.com/mat3ra/cove.js",
+    "homepage": "https://github.com/mat3ra/cove",
     "peerDependencies": {
         "@mat3ra/code": "*",
         "@mat3ra/esse": "*",

@@ -11,22 +11,22 @@ cove houses entity definitions for use in the Mat3ra platform.
 For usage within a javascript project:
 
 ```bash
-npm install @mat3ra/cove.js
+npm install @mat3ra/cove
 ```
 
 For development:
 
 ```bash
-git clone https://github.com/mat3ra/cove.js.git
-cd cove.js
+git clone https://github.com/mat3ra/cove.git
+cd cove
 npm install
 npm run transpile
 ```
 
-How to link cove.js to host app:
+How to link cove to host app:
 ```bash
-rm -rf {PATH}/exabyte-stack/web-app/src/application/node_modules/@mat3ra/cove.js/dist
-ln -s "$(pwd)/dist/" /{ABSOLUTE_PATH}/exabyte-stack/web-app/src/application/node_modules/@mat3ra/cove.js
+rm -rf {PATH}/exabyte-stack/web-app/src/application/node_modules/@mat3ra/cove/dist
+ln -s "$(pwd)/dist/" /{ABSOLUTE_PATH}/exabyte-stack/web-app/src/application/node_modules/@mat3ra/cove
 restart host app (web-app, wave etc.)
 ```
 
@@ -34,10 +34,10 @@ another approach is to access cove from repo
 
 ```bash
 push your branch
-replace cove.js version with url in package.json
-"@mat3ra/cove.js": "https://github.com/mat3ra/cove.js#cc48da9652840eb0f7d8854e02cb690484e6fab1",
+replace cove version with url in package.json
+"@mat3ra/cove": "https://github.com/mat3ra/cove#cc48da9652840eb0f7d8854e02cb690484e6fab1",
 ```
-make sure to install appropriate versions of peerDependencies from cove.js to host app
+make sure to install appropriate versions of peerDependencies from cove to host app
 
 DO NOT use `npm link` as it leads to having multiple react libs in app.
 See links:
@@ -49,7 +49,7 @@ https://legacy.reactjs.org/warnings/invalid-hook-call-warning.html#duplicate-rea
 Typescript and all necessary type dependencies must be present in dependency section of package.json in order
 to transpile files and generate type definitions during package installation on postinstall command.
 It is necessary for testing arbitrary branches for example as dependency
-git+https://github.com/mat3ra/cove.js.git#b7604da7717232ac38a6372fea603f0b04645ade in web-app.
+git+https://github.com/mat3ra/cove.git#b7604da7717232ac38a6372fea603f0b04645ade in web-app.
 
 ### Contribution
 
