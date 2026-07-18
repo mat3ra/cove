@@ -17,7 +17,7 @@ export function AccountCard({ account, onClick, subtitle, size = "medium" }) {
                 fontSize: currentSize.avatar / 2.5,
             } }, !avatarUrl ? name.substring(0, 1).toUpperCase() : undefined),
         React.createElement(Stack, { spacing: 0.2, overflow: "hidden" },
-            React.createElement(Typography, { variant: currentSize.name, noWrap: true, fontWeight: "bold" }, name),
-            subtitle && (React.createElement(Typography, { variant: currentSize.type, color: "text.secondary", noWrap: true }, subtitle)))));
+            React.createElement(Typography, { variant: currentSize.name, noWrap: true, fontWeight: "bold", className: "account-card-name" }, name),
+            subtitle && (React.createElement(Typography, { variant: currentSize.type, color: "text.secondary", noWrap: true, className: "account-card-type" }, subtitle)))));
 }
 export default AccountCard;

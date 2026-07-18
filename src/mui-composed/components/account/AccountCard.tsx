@@ -42,11 +42,19 @@ export function AccountCard({ account, onClick, subtitle, size = "medium" }: Acc
                 {!avatarUrl ? name.substring(0, 1).toUpperCase() : undefined}
             </Avatar>
             <Stack spacing={0.2} overflow="hidden">
-                <Typography variant={currentSize.name} noWrap fontWeight="bold">
+                <Typography
+                    variant={currentSize.name}
+                    noWrap
+                    fontWeight="bold"
+                    className="account-card-name">
                     {name}
                 </Typography>
                 {subtitle && (
-                    <Typography variant={currentSize.type} color="text.secondary" noWrap>
+                    <Typography
+                        variant={currentSize.type}
+                        color="text.secondary"
+                        noWrap
+                        className="account-card-type">
                         {subtitle}
                     </Typography>
                 )}
