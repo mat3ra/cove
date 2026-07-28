@@ -123,6 +123,10 @@ export default function EntityName({
             <Stack className="entity-name-title" flexGrow={1}>
                 {editable ? (
                     <StyledInput
+                        // Without fullWidth, InputBase sizes to the input's default ~20-char
+                        // intrinsic width and truncates typical entity names; let it fill the
+                        // name area the header allocates instead.
+                        fullWidth
                         componentsProps={{
                             input: {
                                 className: "name",
