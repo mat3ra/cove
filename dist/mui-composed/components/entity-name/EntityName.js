@@ -40,7 +40,15 @@ export default function EntityName({ value, subtitle, onClick, icon, showIcon = 
             image ? React.createElement(Avatar, { alt: "", src: image, sx: { width: 48, height: 48 } }) : null,
             icon ? (React.createElement(IconByName, { name: icon, fontSize: "large", color: status })) : null)) : null,
         React.createElement(Stack, { className: "entity-name-title", flexGrow: 1 },
-            editable ? (React.createElement(StyledInput, { componentsProps: {
+            editable ? (React.createElement(StyledInput
+            // Without fullWidth, InputBase sizes to the input's default ~20-char
+            // intrinsic width and truncates typical entity names; let it fill the
+            // name area the header allocates instead.
+            , { 
+                // Without fullWidth, InputBase sizes to the input's default ~20-char
+                // intrinsic width and truncates typical entity names; let it fill the
+                // name area the header allocates instead.
+                fullWidth: true, componentsProps: {
                     input: {
                         className: "name",
                     },

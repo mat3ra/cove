@@ -44,7 +44,13 @@ export function EntityHeader({
                 elevation={0}
                 sx={{ width: "100%", bgcolor: "background.paper" }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" p={2}>
-                    <Stack direction="row" spacing={2} alignItems="center" flexGrow={1}>
+                    {/* flexBasis 50%: the (editable) name gets at least half the header and can
+                        grow into unused space; minWidth 0 lets long names truncate instead of
+                        pushing the actions out of the header. Deliberately a column Stack: its
+                        default cross-axis stretch is what makes EntityName (and its fullWidth
+                        input) span the whole area - a row Stack sizes children to content,
+                        which shrank the editable name to the input's ~20-char intrinsic width. */}
+                    <Stack flexGrow={1} sx={{ flexBasis: "50%", minWidth: 0 }}>
                         <EntityName
                             value={name}
                             subtitle={subtitle}
