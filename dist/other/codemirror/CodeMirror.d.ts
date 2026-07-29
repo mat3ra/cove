@@ -12,6 +12,12 @@ export interface CodeMirrorProps {
     theme?: "light" | "dark";
     checks?: ConsistencyCheck[];
     readOnly?: boolean;
+    /**
+     * Extra CodeMirror 6 extensions appended after the built-in language/completion/lint set — an
+     * escape hatch for consumer features the wrapper doesn't model (e.g. signature-help tooltips,
+     * custom keymaps). Pass a stable array: extensions are wired when the editor mounts.
+     */
+    extensions?: Extension[];
 }
 export interface CodeMirrorState {
     content: string;
