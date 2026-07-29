@@ -66,10 +66,6 @@ class CodeMirror extends React.Component {
             const linterExtension = linterGenerator(checks);
             extensions.push(linter(linterExtension));
         }
-        const { extensions: propExtensions } = this.props;
-        if (propExtensions) {
-            extensions.push(...propExtensions);
-        }
         return extensions;
     }
     render() {

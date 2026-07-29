@@ -2,10 +2,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-    type CompletionBackend,
+    type PythonCompletionBackend,
     buildInfoNode,
-    jediTypeToCm,
-    makeReplCompletionSource,
+    jediTypeToCodeMirrorType,
+    makePythonCompletionSource,
+    shortenQualifiedNames,
 } from "../src/other/codemirror/utils/pythonCompletions";
 
 // buildInfoNode() only needs createElement/style/textContent/appendChild — a plain Node test has no
@@ -52,7 +53,7 @@ const makeContext = (source: string, pos: number, explicit = false) => {
     } as any;
 };
 
-const backend = (over: Partial<CompletionBackend> = {}): CompletionBackend => ({
+const backend = (over: Partial<PythonCompletionBackend> = {}): PythonCompletionBackend => ({
     isInitialized: true,
     complete: () => [
         { name: "supercell", type: "instance" },
@@ -62,15 +63,48 @@ const backend = (over: Partial<CompletionBackend> = {}): CompletionBackend => ({
     ...over,
 });
 
-describe("jediTypeToCm", () => {
+describe("shortenQualifiedNames", () => {
+    it("collapses a dotted module path to the class name", () => {
+        assert.equal(shortenQualifiedNames("mat3ra.made.material.Material"), "Material");
+    });
+
+    it("collapses every qualified name inside a Union", () => {
+        assert.equal(
+            shortenQualifiedNames(
+                "crystal: Union[mat3ra.made.material.Material, " +
+                    "mat3ra.made.tools.build_components.metadata.material_with_build_metadata.MaterialWithBuildMetadata]",
+            ),
+            "crystal: Union[Material, MaterialWithBuildMetadata]",
+        );
+    });
+
+    it("leaves numeric literals and plain generics untouched", () => {
+        assert.equal(shortenQualifiedNames("vacuum: float = 10.0"), "vacuum: float = 10.0");
+        assert.equal(
+            shortenQualifiedNames("miller_indices: Tuple[int, int, int] = (0, 0, 1)"),
+            "miller_indices: Tuple[int, int, int] = (0, 0, 1)",
+        );
+    });
+
+    it("collapses a qualified type inside Optional", () => {
+        assert.equal(
+            shortenQualifiedNames(
+                "termination_top: Optional[mat3ra.made.tools.build_components.entities.auxiliary.two_dimensional.termination.Termination] = None",
+            ),
+            "termination_top: Optional[Termination] = None",
+        );
+    });
+});
+
+describe("jediTypeToCodeMirrorType", () => {
     it("maps Jedi kinds to CodeMirror completion types", () => {
-        assert.equal(jediTypeToCm("function"), "function");
-        assert.equal(jediTypeToCm("instance"), "variable");
-        assert.equal(jediTypeToCm("module"), "namespace");
-        assert.equal(jediTypeToCm("keyword"), "keyword");
+        assert.equal(jediTypeToCodeMirrorType("function"), "function");
+        assert.equal(jediTypeToCodeMirrorType("instance"), "variable");
+        assert.equal(jediTypeToCodeMirrorType("module"), "namespace");
+        assert.equal(jediTypeToCodeMirrorType("keyword"), "keyword");
     });
     it("falls back to 'variable' for unknown kinds", () => {
-        assert.equal(jediTypeToCm("weird"), "variable");
+        assert.equal(jediTypeToCodeMirrorType("weird"), "variable");
     });
 });
 
@@ -87,14 +121,14 @@ describe("buildInfoNode", () => {
     });
 });
 
-describe("makeReplCompletionSource", () => {
+describe("makePythonCompletionSource", () => {
     it("returns null before the session is initialized", () => {
-        const source = makeReplCompletionSource(backend({ isInitialized: false }));
+        const source = makePythonCompletionSource(backend({ isInitialized: false }));
         assert.equal(source(makeContext("sup", 3)), null);
     });
 
     it("offers backend completions (variables AND functions) anchored at the word start", () => {
-        const source = makeReplCompletionSource(backend());
+        const source = makePythonCompletionSource(backend());
         const result = source(makeContext("sup", 3));
         assert.equal(result?.from, 0);
         assert.deepEqual(
@@ -108,18 +142,18 @@ describe("makeReplCompletionSource", () => {
     });
 
     it("does not pop up on an empty prefix unless explicit", () => {
-        const source = makeReplCompletionSource(backend());
+        const source = makePythonCompletionSource(backend());
         assert.equal(source(makeContext("", 0)), null);
         assert.equal(source(makeContext("", 0, true))?.options.length, 2);
     });
 
     it("DOES pop up after a dot (attribute access) even without an explicit request", () => {
-        const source = makeReplCompletionSource(backend());
+        const source = makePythonCompletionSource(backend());
         assert.equal(source(makeContext("material.", 9))?.options.length, 2);
     });
 
     it("boosts keyword-arg (param) completions and completes them as `name=`", () => {
-        const source = makeReplCompletionSource(
+        const source = makePythonCompletionSource(
             backend({
                 complete: () => [
                     { name: "crystal", type: "param" },
@@ -137,11 +171,11 @@ describe("makeReplCompletionSource", () => {
 
     it("resolves signature/docstring lazily via the info callback", () => {
         let describeCallCount = 0;
-        const describe: CompletionBackend["describe"] = (...args) => {
+        const describe: PythonCompletionBackend["describe"] = (...args) => {
             describeCallCount += 1;
             return backend().describe(...args);
         };
-        const source = makeReplCompletionSource(backend({ describe }));
+        const source = makePythonCompletionSource(backend({ describe }));
         const result = source(makeContext("sup", 3));
         assert.equal(describeCallCount, 0); // not until the item is highlighted
         const info = result?.options[0].info as (c: unknown) => HTMLElement | null;

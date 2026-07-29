@@ -1,6 +1,5 @@
-import { shortenQualifiedNames } from "./pyFormat";
-/** Map Jedi's completion `type` to a CodeMirror completion type (drives the popup icon). */
-const JEDI_TYPE_TO_CM = {
+/** Map Jedi's completion kind to a CodeMirror completion type (drives the popup icon). */
+const JEDI_TYPE_TO_CODEMIRROR_TYPE = {
     module: "namespace",
     class: "class",
     instance: "variable",
@@ -12,51 +11,68 @@ const JEDI_TYPE_TO_CM = {
     keyword: "keyword",
     statement: "variable",
 };
-export function jediTypeToCm(type) {
+export function jediTypeToCodeMirrorType(type) {
     var _a;
-    return (_a = JEDI_TYPE_TO_CM[type]) !== null && _a !== void 0 ? _a : "variable";
+    return (_a = JEDI_TYPE_TO_CODEMIRROR_TYPE[type]) !== null && _a !== void 0 ? _a : "variable";
 }
 /**
- * Build the info-popup DOM for a highlighted completion: the signature in a wrapped monospace block,
- * the docstring as readable prose below it. Returns null when there's nothing to show. Rendering as a
- * bounded DOM node (rather than a raw string) is what makes long typed signatures legible.
+ * Collapse fully-qualified dotted names to their last segment so long typed signatures read well —
+ * e.g. `mat3ra.made.material.Material` → `Material`, and
+ * `Union[a.b.Material, c.d.MaterialWithBuildMetadata]` → `Union[Material, MaterialWithBuildMetadata]`.
+ *
+ * Only runs of identifier segments are collapsed (each must start with a letter/underscore), so
+ * numeric literals like `10.0` and generics like `Tuple[int, int, int]` are left untouched.
+ *
+ * Exported for tests only — not part of the package's public API (see ../index.ts).
  */
-export function buildInfoNode(desc) {
-    if (!desc || (!desc.signature && !desc.docstring))
+export function shortenQualifiedNames(text) {
+    return text.replace(/(?:[A-Za-z_]\w*\.)+([A-Za-z_]\w*)/g, "$1");
+}
+/**
+ * Build the info-popup content for a highlighted completion: the signature in a wrapped monospace
+ * block, the docstring as readable prose below it. Returns null when there's nothing to show.
+ *
+ * This is hand-rolled DOM rather than a React component (which would be the house style) because
+ * CodeMirror's completion `info` contract hands back a detached DOM node that CM mounts itself —
+ * there is no React tree to render into. Styles are inline for the same reason: the node lives outside
+ * our MUI ThemeProvider, so `sx`/theme lookups would not resolve.
+ */
+export function buildInfoNode(info) {
+    if (!info || (!info.signature && !info.docstring))
         return null;
     const root = document.createElement("div");
     root.style.maxWidth = "460px";
     root.style.maxHeight = "320px";
     root.style.overflow = "auto";
-    if (desc.signature) {
-        const sig = document.createElement("div");
-        sig.textContent = shortenQualifiedNames(desc.signature);
-        sig.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
-        sig.style.fontSize = "0.85em";
-        sig.style.whiteSpace = "pre-wrap";
-        sig.style.wordBreak = "break-word";
-        if (desc.docstring) {
-            sig.style.marginBottom = "6px";
-            sig.style.paddingBottom = "6px";
-            sig.style.borderBottom = "1px solid rgba(128,128,128,0.3)";
+    if (info.signature) {
+        const signatureNode = document.createElement("div");
+        signatureNode.textContent = shortenQualifiedNames(info.signature);
+        signatureNode.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
+        signatureNode.style.fontSize = "0.85em";
+        signatureNode.style.whiteSpace = "pre-wrap";
+        signatureNode.style.wordBreak = "break-word";
+        if (info.docstring) {
+            signatureNode.style.marginBottom = "6px";
+            signatureNode.style.paddingBottom = "6px";
+            signatureNode.style.borderBottom = "1px solid rgba(128,128,128,0.3)";
         }
-        root.appendChild(sig);
+        root.appendChild(signatureNode);
     }
-    if (desc.docstring) {
-        const doc = document.createElement("div");
-        doc.textContent = desc.docstring;
-        doc.style.whiteSpace = "pre-wrap";
-        root.appendChild(doc);
+    if (info.docstring) {
+        const docstringNode = document.createElement("div");
+        docstringNode.textContent = info.docstring;
+        docstringNode.style.whiteSpace = "pre-wrap";
+        root.appendChild(docstringNode);
     }
     return root;
 }
 /**
- * A CodeMirror 6 completion source backed by Jedi (via {@link CompletionBackend}). It completes at the
- * cursor against the live namespace, so it offers the user's variables and attributes as well as the
- * pre-imported helpers — and defers signature/docstring to an on-demand `info` callback so typing
- * stays responsive.
+ * A CodeMirror 6 completion source backed by Jedi (via {@link PythonCompletionBackend}). It completes
+ * at the cursor against the live namespace, so it offers the user's own variables and attributes as
+ * well as any pre-imported helpers — and defers signature/docstring to an on-demand `info` callback so
+ * typing stays responsive.
  */
-export function makeReplCompletionSource(backend) {
+export function makePythonCompletionSource(backend) {
     return (context) => {
         if (!backend.isInitialized)
             return null;
@@ -65,10 +81,10 @@ export function makeReplCompletionSource(backend) {
             return null;
         // Suppress the popup on an empty prefix unless the char before is `.` (attribute access) or
         // the user explicitly asked (Ctrl+Space).
-        const prevChar = fragment.from > 0
+        const previousCharacter = fragment.from > 0
             ? context.state.doc.sliceString(fragment.from - 1, fragment.from)
             : "";
-        if (fragment.from === fragment.to && prevChar !== "." && !context.explicit)
+        if (fragment.from === fragment.to && previousCharacter !== "." && !context.explicit)
             return null;
         const source = context.state.doc.toString();
         const lineInfo = context.state.doc.lineAt(context.pos);
@@ -83,17 +99,17 @@ export function makeReplCompletionSource(backend) {
         }
         if (!completions.length)
             return null;
-        const options = completions.map((c) => {
-            const isParam = c.type === "param";
+        const options = completions.map((completion) => {
+            const isKeywordArgument = completion.type === "param";
             return {
-                label: c.name,
-                type: jediTypeToCm(c.type),
-                detail: c.type,
+                label: completion.name,
+                type: jediTypeToCodeMirrorType(completion.type),
+                detail: completion.type,
                 // Rank the current call's keyword args above everything else, and complete them as
                 // `name=` so the user lands ready to type the value (IDE-style).
-                boost: isParam ? 99 : 0,
-                apply: isParam ? `${c.name}=` : undefined,
-                info: () => buildInfoNode(backend.describe(source, line, column, c.name)),
+                boost: isKeywordArgument ? 99 : 0,
+                apply: isKeywordArgument ? `${completion.name}=` : undefined,
+                info: () => buildInfoNode(backend.describe(source, line, column, completion.name)),
             };
         });
         return { from: fragment.from, options, validFor: /^\w*$/ };

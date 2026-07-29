@@ -1,32 +1,7 @@
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 
-import { shortenQualifiedNames } from "./pyFormat";
-
-/** A single completion candidate, as returned by a Python completion backend (e.g. Jedi). */
-export interface ReplCompletion {
-    name: string;
-    type: string;
-}
-
-/** On-demand signature + docstring for a highlighted completion. */
-export interface ReplDescription {
-    signature: string;
-    docstring: string;
-}
-
-/**
- * The backend a Python completion source needs. Keeping it an interface makes the source
- * unit-testable with a fake backend, and lets any in-process Python runtime (Pyodide, or otherwise)
- * plug in as long as it can complete/describe at a source position.
- */
-export interface CompletionBackend {
-    isInitialized: boolean;
-    complete(source: string, line: number, column: number): ReplCompletion[];
-    describe(source: string, line: number, column: number, name: string): ReplDescription | null;
-}
-
-/** Map Jedi's completion `type` to a CodeMirror completion type (drives the popup icon). */
-const JEDI_TYPE_TO_CM: Record<string, string> = {
+/** Map Jedi's completion kind to a CodeMirror completion type (drives the popup icon). */
+const JEDI_TYPE_TO_CODEMIRROR_TYPE = {
     module: "namespace",
     class: "class",
     instance: "variable",
@@ -37,54 +12,112 @@ const JEDI_TYPE_TO_CM: Record<string, string> = {
     path: "text",
     keyword: "keyword",
     statement: "variable",
-};
+} as const;
 
-export function jediTypeToCm(type: string): string {
-    return JEDI_TYPE_TO_CM[type] ?? "variable";
+/** The Jedi completion kinds we know how to map. Derived from the map so the two can't drift. */
+export type JediCompletionType = keyof typeof JEDI_TYPE_TO_CODEMIRROR_TYPE;
+
+/** The CodeMirror completion types reachable from the map above. */
+export type CodeMirrorCompletionType =
+    (typeof JEDI_TYPE_TO_CODEMIRROR_TYPE)[keyof typeof JEDI_TYPE_TO_CODEMIRROR_TYPE];
+
+/** One completion candidate, as produced by a Python completion backend. */
+export interface PythonCompletion {
+    name: string;
+    /**
+     * Jedi's kind for this candidate. Typed as a plain `string`, not {@link JediCompletionType},
+     * because it crosses an untyped boundary (it's whatever the Python side reported) — which is
+     * exactly why {@link jediTypeToCodeMirrorType} falls back instead of switching exhaustively.
+     */
+    type: string;
+}
+
+/** On-demand signature + docstring for a highlighted completion. */
+export interface PythonSignatureInfo {
+    signature: string;
+    docstring: string;
 }
 
 /**
- * Build the info-popup DOM for a highlighted completion: the signature in a wrapped monospace block,
- * the docstring as readable prose below it. Returns null when there's nothing to show. Rendering as a
- * bounded DOM node (rather than a raw string) is what makes long typed signatures legible.
+ * The backend a Python completion source needs. Keeping it an interface makes the source unit-testable
+ * with a fake backend, and lets any in-process Python runtime (Pyodide or otherwise) plug in as long as
+ * it can complete/describe at a source position.
  */
-export function buildInfoNode(desc: ReplDescription | null): HTMLElement | null {
-    if (!desc || (!desc.signature && !desc.docstring)) return null;
+export interface PythonCompletionBackend {
+    isInitialized: boolean;
+    complete(source: string, line: number, column: number): PythonCompletion[];
+    describe(
+        source: string,
+        line: number,
+        column: number,
+        name: string,
+    ): PythonSignatureInfo | null;
+}
+
+export function jediTypeToCodeMirrorType(type: string): CodeMirrorCompletionType {
+    return JEDI_TYPE_TO_CODEMIRROR_TYPE[type as JediCompletionType] ?? "variable";
+}
+
+/**
+ * Collapse fully-qualified dotted names to their last segment so long typed signatures read well —
+ * e.g. `mat3ra.made.material.Material` → `Material`, and
+ * `Union[a.b.Material, c.d.MaterialWithBuildMetadata]` → `Union[Material, MaterialWithBuildMetadata]`.
+ *
+ * Only runs of identifier segments are collapsed (each must start with a letter/underscore), so
+ * numeric literals like `10.0` and generics like `Tuple[int, int, int]` are left untouched.
+ *
+ * Exported for tests only — not part of the package's public API (see ../index.ts).
+ */
+export function shortenQualifiedNames(text: string): string {
+    return text.replace(/(?:[A-Za-z_]\w*\.)+([A-Za-z_]\w*)/g, "$1");
+}
+
+/**
+ * Build the info-popup content for a highlighted completion: the signature in a wrapped monospace
+ * block, the docstring as readable prose below it. Returns null when there's nothing to show.
+ *
+ * This is hand-rolled DOM rather than a React component (which would be the house style) because
+ * CodeMirror's completion `info` contract hands back a detached DOM node that CM mounts itself —
+ * there is no React tree to render into. Styles are inline for the same reason: the node lives outside
+ * our MUI ThemeProvider, so `sx`/theme lookups would not resolve.
+ */
+export function buildInfoNode(info: PythonSignatureInfo | null): HTMLElement | null {
+    if (!info || (!info.signature && !info.docstring)) return null;
     const root = document.createElement("div");
     root.style.maxWidth = "460px";
     root.style.maxHeight = "320px";
     root.style.overflow = "auto";
 
-    if (desc.signature) {
-        const sig = document.createElement("div");
-        sig.textContent = shortenQualifiedNames(desc.signature);
-        sig.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
-        sig.style.fontSize = "0.85em";
-        sig.style.whiteSpace = "pre-wrap";
-        sig.style.wordBreak = "break-word";
-        if (desc.docstring) {
-            sig.style.marginBottom = "6px";
-            sig.style.paddingBottom = "6px";
-            sig.style.borderBottom = "1px solid rgba(128,128,128,0.3)";
+    if (info.signature) {
+        const signatureNode = document.createElement("div");
+        signatureNode.textContent = shortenQualifiedNames(info.signature);
+        signatureNode.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
+        signatureNode.style.fontSize = "0.85em";
+        signatureNode.style.whiteSpace = "pre-wrap";
+        signatureNode.style.wordBreak = "break-word";
+        if (info.docstring) {
+            signatureNode.style.marginBottom = "6px";
+            signatureNode.style.paddingBottom = "6px";
+            signatureNode.style.borderBottom = "1px solid rgba(128,128,128,0.3)";
         }
-        root.appendChild(sig);
+        root.appendChild(signatureNode);
     }
-    if (desc.docstring) {
-        const doc = document.createElement("div");
-        doc.textContent = desc.docstring;
-        doc.style.whiteSpace = "pre-wrap";
-        root.appendChild(doc);
+    if (info.docstring) {
+        const docstringNode = document.createElement("div");
+        docstringNode.textContent = info.docstring;
+        docstringNode.style.whiteSpace = "pre-wrap";
+        root.appendChild(docstringNode);
     }
     return root;
 }
 
 /**
- * A CodeMirror 6 completion source backed by Jedi (via {@link CompletionBackend}). It completes at the
- * cursor against the live namespace, so it offers the user's variables and attributes as well as the
- * pre-imported helpers — and defers signature/docstring to an on-demand `info` callback so typing
- * stays responsive.
+ * A CodeMirror 6 completion source backed by Jedi (via {@link PythonCompletionBackend}). It completes
+ * at the cursor against the live namespace, so it offers the user's own variables and attributes as
+ * well as any pre-imported helpers — and defers signature/docstring to an on-demand `info` callback so
+ * typing stays responsive.
  */
-export function makeReplCompletionSource(backend: CompletionBackend) {
+export function makePythonCompletionSource(backend: PythonCompletionBackend) {
     return (context: CompletionContext): CompletionResult | null => {
         if (!backend.isInitialized) return null;
 
@@ -92,18 +125,19 @@ export function makeReplCompletionSource(backend: CompletionBackend) {
         if (!fragment) return null;
         // Suppress the popup on an empty prefix unless the char before is `.` (attribute access) or
         // the user explicitly asked (Ctrl+Space).
-        const prevChar =
+        const previousCharacter =
             fragment.from > 0
                 ? context.state.doc.sliceString(fragment.from - 1, fragment.from)
                 : "";
-        if (fragment.from === fragment.to && prevChar !== "." && !context.explicit) return null;
+        if (fragment.from === fragment.to && previousCharacter !== "." && !context.explicit)
+            return null;
 
         const source = context.state.doc.toString();
         const lineInfo = context.state.doc.lineAt(context.pos);
         const line = lineInfo.number; // Jedi lines are 1-based
         const column = context.pos - lineInfo.from; // columns 0-based
 
-        let completions: ReplCompletion[];
+        let completions: PythonCompletion[];
         try {
             completions = backend.complete(source, line, column);
         } catch {
@@ -111,17 +145,17 @@ export function makeReplCompletionSource(backend: CompletionBackend) {
         }
         if (!completions.length) return null;
 
-        const options: Completion[] = completions.map((c) => {
-            const isParam = c.type === "param";
+        const options: Completion[] = completions.map((completion) => {
+            const isKeywordArgument = completion.type === "param";
             return {
-                label: c.name,
-                type: jediTypeToCm(c.type),
-                detail: c.type,
+                label: completion.name,
+                type: jediTypeToCodeMirrorType(completion.type),
+                detail: completion.type,
                 // Rank the current call's keyword args above everything else, and complete them as
                 // `name=` so the user lands ready to type the value (IDE-style).
-                boost: isParam ? 99 : 0,
-                apply: isParam ? `${c.name}=` : undefined,
-                info: () => buildInfoNode(backend.describe(source, line, column, c.name)),
+                boost: isKeywordArgument ? 99 : 0,
+                apply: isKeywordArgument ? `${completion.name}=` : undefined,
+                info: () => buildInfoNode(backend.describe(source, line, column, completion.name)),
             };
         });
         return { from: fragment.from, options, validFor: /^\w*$/ };

@@ -1,5 +1,7 @@
 export { default } from "./CodeMirror";
 export * from "./CodeMirror";
 export * from "./utils/autocomplete_utils";
-export * from "./utils/pyFormat";
-export * from "./utils/pythonCompletions";
+// Only the Python completion entry point + its contract types are public API. `buildInfoNode`,
+// `jediTypeToCodeMirrorType` and `shortenQualifiedNames` stay module-private (they're exported from
+// the module for tests, but deliberately not re-exported here) so we aren't stuck supporting them.
+export { makePythonCompletionSource, } from "./utils/pythonCompletions";
