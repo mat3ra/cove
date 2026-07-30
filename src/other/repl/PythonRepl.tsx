@@ -1,0 +1,188 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Stack from "@mui/material/Stack";
+import { useTheme } from "@mui/material/styles";
+import Typography from "@mui/material/Typography";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+import IconByName from "../../mui/components/icon/IconByName";
+import { showErrorAlert } from "../alerts";
+import CodeMirror, { type CodeMirrorProps } from "../codemirror";
+import { makePythonCompletionSource } from "../codemirror/utils/pythonCompletions";
+import type { PythonError, PythonSessionInterface } from "../pyodide/PyodideSession";
+import ReplConsole from "./ReplConsole";
+
+/** Lifecycle of the REPL, driving the status chip and the disabled state of Run. */
+export enum ReplStatus {
+    Loading = "loading",
+    Ready = "ready",
+    Running = "running",
+    Error = "error",
+}
+
+const STATUS_LABEL: Record<ReplStatus, string> = {
+    [ReplStatus.Loading]: "Preparing Python environment…",
+    [ReplStatus.Ready]: "Ready",
+    [ReplStatus.Running]: "Running…",
+    [ReplStatus.Error]: "Error",
+};
+
+export interface PythonReplProps {
+    /** The Python runtime to drive. A {@link PyodideSession} (or subclass) satisfies this. */
+    session: PythonSessionInterface;
+    /** Bootstraps on first `true`, so the (slow) environment load is paid only when actually shown. */
+    show: boolean;
+    /** Initial editor content. */
+    defaultCode?: string;
+    /** Called once the environment is ready — e.g. to inject inputs into the namespace. */
+    onReady?: () => void;
+    /** Called immediately before each run — e.g. to refresh injected inputs. */
+    onBeforeRun?: () => void;
+    /** Called after a run that succeeded — e.g. to collect results out of the namespace. */
+    onRunSuccess?: () => void;
+}
+
+/**
+ * A layout-agnostic, terminal-like Python REPL: editor + Run + status, over a scrollback/error
+ * console. Delegates ALL Python work to the injected {@link PythonReplProps.session}, and knows
+ * nothing about what that session's namespace contains — domain wiring happens through the
+ * `onReady` / `onBeforeRun` / `onRunSuccess` hooks, so this component is reusable as-is.
+ *
+ * Fills whatever height its parent gives it, so it drops into a drawer, a split pane or a tiling
+ * layout unchanged.
+ */
+function PythonRepl({
+    session,
+    show,
+    defaultCode = "",
+    onReady,
+    onBeforeRun,
+    onRunSuccess,
+}: PythonReplProps) {
+    const theme = useTheme();
+    const [status, setStatus] = useState<ReplStatus>(ReplStatus.Loading);
+    const [code, setCode] = useState<string>(defaultCode);
+    const [output, setOutput] = useState<string>("");
+    const [error, setError] = useState<PythonError | null>(null);
+
+    // Stable completion source: completes against the live namespace on each keystroke, so it offers
+    // the user's own variables/attributes as well as anything the session pre-imported.
+    const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
+
+    // Load the environment the first time the panel is shown.
+    useEffect(() => {
+        if (!show) return undefined;
+        let cancelled = false;
+        (async () => {
+            try {
+                setOutput("");
+                // Stream each bootstrap step into the console so the long first load is visibly
+                // progressing (loading runtime → installing packages → importing → ready).
+                await session.load((message) => {
+                    if (!cancelled) setOutput((previous) => `${previous}${message}\n`);
+                });
+                if (cancelled) return;
+                onReady?.();
+                setStatus(ReplStatus.Ready);
+            } catch (loadError) {
+                if (cancelled) return;
+                setStatus(ReplStatus.Error);
+                showErrorAlert(loadError instanceof Error ? loadError.message : String(loadError));
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [show, session, onReady]);
+
+    const runCode = useCallback(async () => {
+        if (!session.isInitialized || session.isRunning) return;
+        setStatus(ReplStatus.Running);
+        setError(null);
+        try {
+            onBeforeRun?.();
+            const { output: runOutput, ok, error: runError } = await session.execute(code);
+            if (runOutput) setOutput((previous) => previous + runOutput);
+            if (ok) {
+                onRunSuccess?.();
+                setStatus(ReplStatus.Ready);
+            } else {
+                setError(runError);
+                setStatus(ReplStatus.Error);
+            }
+        } catch (runFailure) {
+            // Infra-level failure (not a user Python error, which the runner captures structurally).
+            setStatus(ReplStatus.Error);
+            showErrorAlert(runFailure instanceof Error ? runFailure.message : String(runFailure));
+        }
+    }, [code, session, onBeforeRun, onRunSuccess]);
+
+    const isBusy = status === ReplStatus.Loading || status === ReplStatus.Running;
+
+    return (
+        <Box
+            id="python-repl"
+            sx={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}
+            // Capture phase so we intercept Shift/Cmd/Ctrl+Enter BEFORE CodeMirror inserts a newline.
+            onKeyDownCapture={(event) => {
+                if (event.key === "Enter" && (event.shiftKey || event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    runCode();
+                }
+            }}>
+            <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1}
+                sx={{ p: 1, borderBottom: `1px solid ${theme.palette.grey[800]}` }}>
+                <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
+                    Python REPL
+                </Typography>
+                {status === ReplStatus.Loading && <CircularProgress size={16} />}
+                <Chip
+                    size="small"
+                    variant="outlined"
+                    color={status === ReplStatus.Error ? "error" : "default"}
+                    label={STATUS_LABEL[status]}
+                />
+                <Button
+                    id="python-repl-run"
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    disabled={isBusy}
+                    onClick={runCode}
+                    title="Run (Shift+Enter)">
+                    Run
+                    <IconByName name="actions.play" sx={{ ml: 0.5 }} />
+                </Button>
+            </Stack>
+            <Box sx={{ flex: "1 1 auto", minHeight: 80, overflowY: "auto" }}>
+                <CodeMirror
+                    content={code}
+                    updateContent={setCode}
+                    options={{ lineNumbers: true }}
+                    theme="dark"
+                    language="python"
+                    // `completions` is typed non-nullable here, but a CM6 source may return null.
+                    completions={completionSource as CodeMirrorProps["completions"]}
+                />
+            </Box>
+            <ReplConsole
+                output={output}
+                error={error}
+                onClear={() => {
+                    setOutput("");
+                    setError(null);
+                }}
+            />
+            {/* matplotlib target, per https://github.com/pyodide/matplotlib-pyodide */}
+            <Box id="pyodide-plot-target-repl" />
+        </Box>
+    );
+}
+
+export default PythonRepl;
