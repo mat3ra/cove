@@ -12,10 +12,30 @@ function injectScriptOnce(src) {
     });
     return scriptLoadPromise;
 }
+let sessionOwningTheInterpreter = null;
+/**
+ * Claim the page's interpreter for `session`, or throw if someone else already holds it. Module-level
+ * rather than methods, because the state being guarded belongs to the module (there is one per page),
+ * not to any single instance.
+ */
+function claimInterpreter(session) {
+    if (sessionOwningTheInterpreter && sessionOwningTheInterpreter !== session) {
+        throw new Error("PyodideSession: an interpreter is already owned by another session. " +
+            "There is one Pyodide per page and its packages/globals are shared — " +
+            "use a single session instance instead of constructing a second one.");
+    }
+    sessionOwningTheInterpreter = session;
+}
+function releaseInterpreter(session) {
+    if (sessionOwningTheInterpreter === session)
+        sessionOwningTheInterpreter = null;
+}
 /**
  * Runs code in a PERSISTENT namespace, so it behaves like a REPL rather than a series of one-shot
  * scripts. Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute};
  * completions need Jedi in the spec's package lists.
+ *
+ * Browser-side there can be only one live instance — see {@link sessionOwningTheInterpreter}.
  */
 export class PyodideSession {
     constructor(spec) {
@@ -34,9 +54,16 @@ export class PyodideSession {
     get py() {
         return this.pyodide;
     }
-    configure({ wheelBaseUrl }) {
-        if (wheelBaseUrl)
-            this.spec.wheelBaseUrl = wheelBaseUrl.replace(/\/$/, "");
+    /**
+     * Override where {@link PyodideEnvironmentSpec.wheelFilenames} are fetched from. Exists so a host
+     * app can point at its own static server (or a test at a local one) without rebuilding the spec.
+     * Must be called BEFORE {@link load}; afterwards the wheels are already installed.
+     */
+    setWheelBaseUrl(wheelBaseUrl) {
+        if (this.initialized) {
+            throw new Error("PyodideSession: wheel base URL cannot change after initialization.");
+        }
+        this.spec.wheelBaseUrl = wheelBaseUrl.replace(/\/$/, "");
     }
     /** Idempotent; reuses a cached `window.pyodide`. Browser-only (touches window/document). */
     async load(onProgress) {
@@ -59,6 +86,7 @@ export class PyodideSession {
     async initialize(pyodide, onProgress) {
         if (this.initialized)
             return;
+        claimInterpreter(this);
         this.pyodide = pyodide;
         const log = (message) => onProgress === null || onProgress === void 0 ? void 0 : onProgress(message);
         // stdout/stderr -> buffer, per https://pyodide.org/en/stable/usage/streams.html
@@ -159,19 +187,40 @@ export class PyodideSession {
             raw.destroy();
         return error;
     }
-    /** `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace. */
+    /**
+     * `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace.
+     *
+     * Every argument goes through `globals`, never string interpolation into the Python source — even
+     * the numbers. Interpolating would make this an injection site the moment a caller passes
+     * something that isn't a number, and it costs nothing to be consistent.
+     */
     complete(source, line, column) {
         if (!this.initialized)
             return [];
-        this.pyodide.globals.set("_repl_c_src", source);
-        return JSON.parse(this.pyodide.runPython(`_repl_complete(_repl_c_src, ${line}, ${column})`));
+        this.setCompletionArguments(source, line, column);
+        return JSON.parse(this.pyodide.runPython("_repl_complete(_repl_c_src, _repl_c_line, _repl_c_column)"));
     }
     describe(source, line, column, name) {
         if (!this.initialized)
             return null;
-        this.pyodide.globals.set("_repl_c_src", source);
+        this.setCompletionArguments(source, line, column);
         this.pyodide.globals.set("_repl_c_name", name);
-        return JSON.parse(this.pyodide.runPython(`_repl_describe(_repl_c_src, ${line}, ${column}, _repl_c_name)`));
+        return JSON.parse(this.pyodide.runPython("_repl_describe(_repl_c_src, _repl_c_line, _repl_c_column, _repl_c_name)"));
+    }
+    setCompletionArguments(source, line, column) {
+        this.pyodide.globals.set("_repl_c_src", source);
+        this.pyodide.globals.set("_repl_c_line", line);
+        this.pyodide.globals.set("_repl_c_column", column);
+    }
+    /**
+     * Releases this session's claim on the page's single interpreter so a differently-configured
+     * session can be built. Pyodide itself cannot be unloaded, so already-installed packages stay
+     * installed — this resets our bookkeeping, not the runtime.
+     */
+    dispose() {
+        releaseInterpreter(this);
+        this.pyodide = null;
+        this.initialized = false;
     }
     assertReady() {
         if (!this.initialized)

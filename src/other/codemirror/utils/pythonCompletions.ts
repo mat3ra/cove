@@ -1,5 +1,27 @@
 import type { Completion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
 
+import { commonSettings } from "../../../theme/theme";
+
+/**
+ * Bounds for the signature/docstring popup. A docstring can run to hundreds of lines, so the node has
+ * to be capped and scrollable or it covers the whole editor.
+ */
+const INFO_POPUP_MAX_WIDTH = "460px";
+
+const INFO_POPUP_MAX_HEIGHT = "320px";
+
+/** Divider between signature and docstring. Grey-on-alpha so it reads on either theme — see buildInfoNode. */
+const INFO_POPUP_DIVIDER_COLOR = "rgba(128, 128, 128, 0.3)";
+
+/**
+ * CodeMirror ranks by `boost` (-99..99) before its own fuzzy score. Keyword arguments for the call the
+ * cursor sits inside are the single most likely thing the user wants, so they take the top of the range
+ * and everything else stays at the neutral default.
+ */
+const KEYWORD_ARGUMENT_BOOST = 99;
+
+const DEFAULT_BOOST = 0;
+
 /** Map Jedi's completion kind to a CodeMirror completion type (drives the popup icon). */
 const JEDI_TYPE_TO_CODEMIRROR_TYPE = {
     module: "namespace",
@@ -63,21 +85,21 @@ export function shortenQualifiedNames(text: string): string {
 export function buildInfoNode(info: PythonSignatureInfo | null): HTMLElement | null {
     if (!info || (!info.signature && !info.docstring)) return null;
     const root = document.createElement("div");
-    root.style.maxWidth = "460px";
-    root.style.maxHeight = "320px";
+    root.style.maxWidth = INFO_POPUP_MAX_WIDTH;
+    root.style.maxHeight = INFO_POPUP_MAX_HEIGHT;
     root.style.overflow = "auto";
 
     if (info.signature) {
         const signatureNode = document.createElement("div");
         signatureNode.textContent = shortenQualifiedNames(info.signature);
-        signatureNode.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, monospace";
+        signatureNode.style.fontFamily = commonSettings.fonts.monospace;
         signatureNode.style.fontSize = "0.85em";
         signatureNode.style.whiteSpace = "pre-wrap";
         signatureNode.style.wordBreak = "break-word";
         if (info.docstring) {
             signatureNode.style.marginBottom = "6px";
             signatureNode.style.paddingBottom = "6px";
-            signatureNode.style.borderBottom = "1px solid rgba(128,128,128,0.3)";
+            signatureNode.style.borderBottom = `1px solid ${INFO_POPUP_DIVIDER_COLOR}`;
         }
         root.appendChild(signatureNode);
     }
@@ -130,7 +152,7 @@ export function makePythonCompletionSource(backend: PythonCompletionBackend) {
                 detail: completion.type,
                 // Rank the current call's keyword args above everything else, and complete them as
                 // `name=` so the user lands ready to type the value (IDE-style).
-                boost: isKeywordArgument ? 99 : 0,
+                boost: isKeywordArgument ? KEYWORD_ARGUMENT_BOOST : DEFAULT_BOOST,
                 apply: isKeywordArgument ? `${completion.name}=` : undefined,
                 info: () => buildInfoNode(backend.describe(source, line, column, completion.name)),
             };

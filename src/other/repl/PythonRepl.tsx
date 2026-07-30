@@ -5,7 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import IconByName from "../../mui/components/icon/IconByName";
 import { showErrorAlert } from "../alerts";
@@ -27,6 +27,8 @@ const STATUS_LABEL: Record<ReplStatus, string> = {
     [ReplStatus.Running]: "Running…",
     [ReplStatus.Error]: "Error",
 };
+
+const EDITOR_MIN_HEIGHT = 80;
 
 export interface PythonReplProps {
     session: PythonSessionInterface;
@@ -58,6 +60,9 @@ function PythonRepl({
 
     const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
 
+    const callbacksRef = useRef({ onReady, onBeforeRun, onRunSuccess });
+    callbacksRef.current = { onReady, onBeforeRun, onRunSuccess };
+
     useEffect(() => {
         if (!show) return undefined;
         let cancelled = false;
@@ -69,7 +74,7 @@ function PythonRepl({
                     if (!cancelled) setOutput((previous) => `${previous}${message}\n`);
                 });
                 if (cancelled) return;
-                onReady?.();
+                callbacksRef.current.onReady?.();
                 setStatus(ReplStatus.Ready);
             } catch (loadError) {
                 if (cancelled) return;
@@ -80,18 +85,18 @@ function PythonRepl({
         return () => {
             cancelled = true;
         };
-    }, [show, session, onReady]);
+    }, [show, session]);
 
     const runCode = useCallback(async () => {
         if (!session.isInitialized || session.isRunning) return;
         setStatus(ReplStatus.Running);
         setError(null);
         try {
-            onBeforeRun?.();
+            callbacksRef.current.onBeforeRun?.();
             const { output: runOutput, ok, error: runError } = await session.execute(code);
             if (runOutput) setOutput((previous) => previous + runOutput);
             if (ok) {
-                onRunSuccess?.();
+                callbacksRef.current.onRunSuccess?.();
                 setStatus(ReplStatus.Ready);
             } else {
                 setError(runError);
@@ -102,7 +107,7 @@ function PythonRepl({
             setStatus(ReplStatus.Error);
             showErrorAlert(runFailure instanceof Error ? runFailure.message : String(runFailure));
         }
-    }, [code, session, onBeforeRun, onRunSuccess]);
+    }, [code, session]);
 
     const isBusy = status === ReplStatus.Loading || status === ReplStatus.Running;
 
@@ -145,12 +150,12 @@ function PythonRepl({
                     <IconByName name="actions.play" sx={{ ml: 0.5 }} />
                 </Button>
             </Stack>
-            <Box sx={{ flex: "1 1 auto", minHeight: 80, overflowY: "auto" }}>
+            <Box sx={{ flex: "1 1 auto", minHeight: EDITOR_MIN_HEIGHT, overflowY: "auto" }}>
                 <CodeMirror
                     content={code}
                     updateContent={setCode}
                     options={{ lineNumbers: true }}
-                    theme="dark"
+                    theme={theme.palette.mode}
                     language="python"
                     // `completions` is typed non-nullable here, but a CM6 source may return null.
                     completions={completionSource as CodeMirrorProps["completions"]}

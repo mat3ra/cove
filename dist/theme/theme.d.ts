@@ -46,6 +46,7 @@ declare const commonSettings: {
     };
 };
 export type CommonSettings = typeof commonSettings;
+export { commonSettings };
 export declare const oldLightMaterialUITheme: Theme;
 export declare const LightMaterialUITheme: Theme;
 export declare const DarkMaterialUITheme: Theme;

@@ -38,6 +38,7 @@ async def _repl_execute(_repl_source):
             ),
         }
 `;
+export const MAX_COMPLETIONS_PER_REQUEST = 60;
 /** Defines `_repl_complete` / `_repl_describe`, used by complete()/describe(). Requires Jedi. */
 export const PY_DEFINE_COMPLETER = `
 # Jedi-backed completion for the editor. jedi.Interpreter completes against the LIVE REPL globals (not
@@ -57,7 +58,7 @@ def _repl_complete(_repl_source, _repl_line, _repl_column):
     # otherwise returns them alphabetically, buried under builtins. Mirrors how IDEs rank params.
     _repl_params = [_completion for _completion in _repl_completions if _completion.type == "param"]
     _repl_others = [_completion for _completion in _repl_completions if _completion.type != "param"]
-    _repl_ordered = (_repl_params + _repl_others)[:60]
+    _repl_ordered = (_repl_params + _repl_others)[:${MAX_COMPLETIONS_PER_REQUEST}]
     return _repl_cjson.dumps(
         [{"name": _completion.name, "type": _completion.type} for _completion in _repl_ordered]
     )

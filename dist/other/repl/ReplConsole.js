@@ -2,18 +2,21 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
-import { useTheme } from "@mui/material/styles";
+import { alpha, useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
 import React, { useEffect, useRef, useState } from "react";
 import IconByName from "../../mui/components/icon/IconByName";
-const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
+import { commonSettings } from "../../theme/theme";
+const ERROR_BACKGROUND_OPACITY = 0.08;
+const EXPANDED_CONSOLE_FLEX = "1 1 40%";
+const COLLAPSED_CONSOLE_FLEX = "0 0 auto";
 function ErrorBlock({ error }) {
     const theme = useTheme();
     return (React.createElement(Box, { sx: {
             mt: 1,
             p: 1,
             borderLeft: `3px solid ${theme.palette.error.main}`,
-            background: "rgba(244, 67, 54, 0.08)",
+            background: alpha(theme.palette.error.main, ERROR_BACKGROUND_OPACITY),
         } },
         React.createElement(Box, { component: "div", sx: { color: theme.palette.error.main, fontWeight: 700, whiteSpace: "pre-wrap" } },
             error.ename,
@@ -51,7 +54,7 @@ function ReplConsole({ output, error, onClear }) {
             flexDirection: "column",
             minHeight: 0,
             // Take a share of the panel when open; shrink to just the header bar when collapsed.
-            flex: open ? "1 1 40%" : "0 0 auto",
+            flex: open ? EXPANDED_CONSOLE_FLEX : COLLAPSED_CONSOLE_FLEX,
             borderTop: `1px solid ${theme.palette.grey[800]}`,
         } },
         React.createElement(Stack, { direction: "row", alignItems: "center", spacing: 0.5, sx: { px: 1, py: 0.25 } },
@@ -69,7 +72,7 @@ function ReplConsole({ output, error, onClear }) {
                 overflowY: "auto",
                 px: 1,
                 pb: 1,
-                fontFamily: MONO,
+                fontFamily: commonSettings.fonts.monospace,
                 fontSize: "0.78rem",
                 lineHeight: 1.5,
             } },

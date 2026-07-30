@@ -5,7 +5,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Stack from "@mui/material/Stack";
 import { useTheme } from "@mui/material/styles";
 import Typography from "@mui/material/Typography";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import IconByName from "../../mui/components/icon/IconByName";
 import { showErrorAlert } from "../alerts";
 import CodeMirror from "../codemirror";
@@ -24,6 +24,7 @@ const STATUS_LABEL = {
     [ReplStatus.Running]: "Running…",
     [ReplStatus.Error]: "Error",
 };
+const EDITOR_MIN_HEIGHT = 80;
 /**
  * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
  * Fills whatever height its parent gives it.
@@ -35,11 +36,14 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
     const [output, setOutput] = useState("");
     const [error, setError] = useState(null);
     const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
+    const callbacksRef = useRef({ onReady, onBeforeRun, onRunSuccess });
+    callbacksRef.current = { onReady, onBeforeRun, onRunSuccess };
     useEffect(() => {
         if (!show)
             return undefined;
         let cancelled = false;
         (async () => {
+            var _a, _b;
             try {
                 setOutput("");
                 // Stream bootstrap steps so the long first load looks alive.
@@ -49,7 +53,7 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
                 });
                 if (cancelled)
                     return;
-                onReady === null || onReady === void 0 ? void 0 : onReady();
+                (_b = (_a = callbacksRef.current).onReady) === null || _b === void 0 ? void 0 : _b.call(_a);
                 setStatus(ReplStatus.Ready);
             }
             catch (loadError) {
@@ -62,19 +66,20 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
         return () => {
             cancelled = true;
         };
-    }, [show, session, onReady]);
+    }, [show, session]);
     const runCode = useCallback(async () => {
+        var _a, _b, _c, _d;
         if (!session.isInitialized || session.isRunning)
             return;
         setStatus(ReplStatus.Running);
         setError(null);
         try {
-            onBeforeRun === null || onBeforeRun === void 0 ? void 0 : onBeforeRun();
+            (_b = (_a = callbacksRef.current).onBeforeRun) === null || _b === void 0 ? void 0 : _b.call(_a);
             const { output: runOutput, ok, error: runError } = await session.execute(code);
             if (runOutput)
                 setOutput((previous) => previous + runOutput);
             if (ok) {
-                onRunSuccess === null || onRunSuccess === void 0 ? void 0 : onRunSuccess();
+                (_d = (_c = callbacksRef.current).onRunSuccess) === null || _d === void 0 ? void 0 : _d.call(_c);
                 setStatus(ReplStatus.Ready);
             }
             else {
@@ -87,7 +92,7 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
             setStatus(ReplStatus.Error);
             showErrorAlert(runFailure instanceof Error ? runFailure.message : String(runFailure));
         }
-    }, [code, session, onBeforeRun, onRunSuccess]);
+    }, [code, session]);
     const isBusy = status === ReplStatus.Loading || status === ReplStatus.Running;
     return (React.createElement(Box, { id: "python-repl", sx: { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }, 
         // Capture phase so we intercept Shift/Cmd/Ctrl+Enter BEFORE CodeMirror inserts a newline.
@@ -105,8 +110,8 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
             React.createElement(Button, { id: "python-repl-run", size: "small", variant: "contained", color: "success", disabled: isBusy, onClick: runCode, title: "Run (Shift+Enter)" },
                 "Run",
                 React.createElement(IconByName, { name: "actions.play", sx: { ml: 0.5 } }))),
-        React.createElement(Box, { sx: { flex: "1 1 auto", minHeight: 80, overflowY: "auto" } },
-            React.createElement(CodeMirror, { content: code, updateContent: setCode, options: { lineNumbers: true }, theme: "dark", language: "python", 
+        React.createElement(Box, { sx: { flex: "1 1 auto", minHeight: EDITOR_MIN_HEIGHT, overflowY: "auto" } },
+            React.createElement(CodeMirror, { content: code, updateContent: setCode, options: { lineNumbers: true }, theme: theme.palette.mode, language: "python", 
                 // `completions` is typed non-nullable here, but a CM6 source may return null.
                 completions: completionSource })),
         React.createElement(ReplConsole, { output: output, error: error, onClear: () => {

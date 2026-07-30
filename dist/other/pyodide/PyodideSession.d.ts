@@ -40,6 +40,8 @@ export interface PythonSessionInterface {
  * Runs code in a PERSISTENT namespace, so it behaves like a REPL rather than a series of one-shot
  * scripts. Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute};
  * completions need Jedi in the spec's package lists.
+ *
+ * Browser-side there can be only one live instance — see {@link sessionOwningTheInterpreter}.
  */
 export declare class PyodideSession implements PythonSessionInterface {
     private pyodide;
@@ -51,9 +53,12 @@ export declare class PyodideSession implements PythonSessionInterface {
     get isInitialized(): boolean;
     get isRunning(): boolean;
     protected get py(): Pyodide;
-    configure({ wheelBaseUrl }: {
-        wheelBaseUrl?: string;
-    }): void;
+    /**
+     * Override where {@link PyodideEnvironmentSpec.wheelFilenames} are fetched from. Exists so a host
+     * app can point at its own static server (or a test at a local one) without rebuilding the spec.
+     * Must be called BEFORE {@link load}; afterwards the wheels are already installed.
+     */
+    setWheelBaseUrl(wheelBaseUrl: string): void;
     /** Idempotent; reuses a cached `window.pyodide`. Browser-only (touches window/document). */
     load(onProgress?: (message: string) => void): Promise<void>;
     /** Takes an already-loaded Pyodide so a Node test can inject one. Idempotent. */
@@ -77,9 +82,22 @@ export declare class PyodideSession implements PythonSessionInterface {
      */
     execute(code: string): Promise<PythonExecutionResult>;
     private get lastError();
-    /** `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace. */
+    /**
+     * `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace.
+     *
+     * Every argument goes through `globals`, never string interpolation into the Python source — even
+     * the numbers. Interpolating would make this an injection site the moment a caller passes
+     * something that isn't a number, and it costs nothing to be consistent.
+     */
     complete(source: string, line: number, column: number): PythonCompletion[];
     describe(source: string, line: number, column: number, name: string): PythonSignatureInfo | null;
+    private setCompletionArguments;
+    /**
+     * Releases this session's claim on the page's single interpreter so a differently-configured
+     * session can be built. Pyodide itself cannot be unloaded, so already-installed packages stay
+     * installed — this resets our bookkeeping, not the runtime.
+     */
+    dispose(): void;
     protected assertReady(): void;
 }
 export default PyodideSession;

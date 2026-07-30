@@ -44,6 +44,7 @@ const commonSettings = {
         },
     },
 };
+export { commonSettings };
 const lightThemePrototype = createTheme({ palette: { ...paletteLight, mode: "light" } });
 const darkThemePrototype = createTheme({ palette: { ...paletteDark, mode: "dark" } });
 // TODO: figure out how to avoid having to patch the theme and use the above createTheme() function instead
