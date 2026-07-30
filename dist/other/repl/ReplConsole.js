@@ -7,7 +7,6 @@ import Typography from "@mui/material/Typography";
 import React, { useEffect, useRef, useState } from "react";
 import IconByName from "../../mui/components/icon/IconByName";
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
-/** Jupyter/nbformat-style error: bold `ename: evalue`, with the cleaned traceback collapsible below. */
 function ErrorBlock({ error }) {
     const theme = useTheme();
     return (React.createElement(Box, { sx: {
@@ -36,15 +35,11 @@ function ErrorBlock({ error }) {
                     color: theme.palette.error.light,
                 } }, error.traceback)))));
 }
-/**
- * stdout scrollback plus a Jupyter-style error block. Owns only its collapsed/expanded state; sizing
- * is the parent's job, so it works in a drawer, split pane or tile unchanged.
- */
+/** Owns only its collapsed/expanded state; sizing is the parent's job. */
 function ReplConsole({ output, error, onClear }) {
     const theme = useTheme();
     const [open, setOpen] = useState(true);
     const bodyRef = useRef(null);
-    // Auto-scroll to the newest line whenever output or the error changes.
     useEffect(() => {
         const body = bodyRef.current;
         if (open && body)

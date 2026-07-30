@@ -14,7 +14,6 @@ declare const JEDI_TYPE_TO_CODEMIRROR_TYPE: {
 };
 export type JediCompletionType = keyof typeof JEDI_TYPE_TO_CODEMIRROR_TYPE;
 export type CodeMirrorCompletionType = (typeof JEDI_TYPE_TO_CODEMIRROR_TYPE)[keyof typeof JEDI_TYPE_TO_CODEMIRROR_TYPE];
-/** One completion candidate, as produced by a Python completion backend. */
 export interface PythonCompletion {
     name: string;
     /** Whatever kind the Python side reported — hence the fallback in jediTypeToCodeMirrorType. */

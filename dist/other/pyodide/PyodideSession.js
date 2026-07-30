@@ -13,11 +13,9 @@ function injectScriptOnce(src) {
     return scriptLoadPromise;
 }
 /**
- * In-browser Python on Pyodide. Runs code in a PERSISTENT namespace, so it behaves like a REPL rather
- * than a series of one-shot scripts. Free of React and of any domain model.
- *
- * Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute}. Completions
- * need Jedi in the spec's package lists.
+ * Runs code in a PERSISTENT namespace, so it behaves like a REPL rather than a series of one-shot
+ * scripts. Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute};
+ * completions need Jedi in the spec's package lists.
  */
 export class PyodideSession {
     constructor(spec) {
@@ -33,7 +31,6 @@ export class PyodideSession {
     get isRunning() {
         return this.running;
     }
-    /** For subclasses that run their own domain Python. */
     get py() {
         return this.pyodide;
     }
@@ -58,10 +55,7 @@ export class PyodideSession {
         }
         await this.initialize(globalWindow.pyodide, onProgress);
     }
-    /**
-     * Build the environment on an already-loaded Pyodide (so a Node test can inject one). Idempotent.
-     * `onProgress` fires before each step: the load takes ~30s and needs to look alive.
-     */
+    /** Takes an already-loaded Pyodide so a Node test can inject one. Idempotent. */
     async initialize(pyodide, onProgress) {
         if (this.initialized)
             return;
@@ -77,8 +71,7 @@ export class PyodideSession {
         log("Loading base packages…");
         await pyodide.loadPackage(["micropip", ...loadPackages]);
         const micropip = pyodide.pyimport("micropip");
-        // Install sequentially — order matters, and logging each package before it installs is what
-        // makes the multi-second load read as steady progress rather than a hang.
+        // Sequential: order matters. Logging before each install is what makes the wait legible.
         const installInOrder = (specs, deps, label) => specs.reduce((previous, spec, index) => {
             const name = spec.split("/").pop() || spec;
             return previous.then(() => {
@@ -126,19 +119,19 @@ export class PyodideSession {
             await micropip.install.callKwargs(`emfs:${fsPath}`, { deps: false });
         }), Promise.resolve());
     }
-    /** Hook: define domain Python once the environment is built, before reporting initialized. */
+    /** Runs after the environment is built, before the session reports itself initialized. */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, class-methods-use-this
     async bootstrapNamespace(log) {
         // no domain setup by default
     }
-    /** Hook: runs before each {@link execute} (e.g. snapshot state to diff afterwards). */
+    /** Runs before each {@link execute} — e.g. to snapshot state and diff it afterwards. */
     // eslint-disable-next-line class-methods-use-this
     beforeExecute() {
         // nothing by default
     }
     /**
-     * Run user code in the persistent namespace. The traceback is returned separately rather than
-     * dumped into stdout, so a UI can render it distinctly. Rejects overlapping runs.
+     * The traceback comes back separately rather than in stdout, so a UI can render it distinctly.
+     * Rejects overlapping runs.
      */
     async execute(code) {
         this.assertReady();
@@ -157,7 +150,6 @@ export class PyodideSession {
             this.running = false;
         }
     }
-    /** The error the runner recorded for the last execution, if any. */
     get lastError() {
         const raw = this.pyodide.globals.get("_repl_last_error");
         if (!raw)
@@ -167,14 +159,13 @@ export class PyodideSession {
             raw.destroy();
         return error;
     }
-    /** Completions at 1-based `line` / 0-based `column`, against the LIVE namespace. */
+    /** `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace. */
     complete(source, line, column) {
         if (!this.initialized)
             return [];
         this.pyodide.globals.set("_repl_c_src", source);
         return JSON.parse(this.pyodide.runPython(`_repl_complete(_repl_c_src, ${line}, ${column})`));
     }
-    /** Signature + docstring for one completion, resolved on demand. */
     describe(source, line, column, name) {
         if (!this.initialized)
             return null;

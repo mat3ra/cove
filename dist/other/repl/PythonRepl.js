@@ -25,8 +25,8 @@ const STATUS_LABEL = {
     [ReplStatus.Error]: "Error",
 };
 /**
- * Editor + Run + status over an output console. Knows nothing about what the session's namespace
- * contains — domain wiring goes through the hooks. Fills whatever height its parent gives it.
+ * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
+ * Fills whatever height its parent gives it.
  */
 function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onRunSuccess, }) {
     const theme = useTheme();
@@ -35,7 +35,6 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
     const [output, setOutput] = useState("");
     const [error, setError] = useState(null);
     const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
-    // Load the environment the first time the panel is shown.
     useEffect(() => {
         if (!show)
             return undefined;

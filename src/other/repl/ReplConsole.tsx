@@ -17,7 +17,6 @@ export interface ReplConsoleProps {
 
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
-/** Jupyter/nbformat-style error: bold `ename: evalue`, with the cleaned traceback collapsible below. */
 function ErrorBlock({ error }: { error: PythonError }) {
     const theme = useTheme();
     return (
@@ -62,16 +61,12 @@ function ErrorBlock({ error }: { error: PythonError }) {
     );
 }
 
-/**
- * stdout scrollback plus a Jupyter-style error block. Owns only its collapsed/expanded state; sizing
- * is the parent's job, so it works in a drawer, split pane or tile unchanged.
- */
+/** Owns only its collapsed/expanded state; sizing is the parent's job. */
 function ReplConsole({ output, error, onClear }: ReplConsoleProps) {
     const theme = useTheme();
     const [open, setOpen] = useState(true);
     const bodyRef = useRef<HTMLDivElement>(null);
 
-    // Auto-scroll to the newest line whenever output or the error changes.
     useEffect(() => {
         const body = bodyRef.current;
         if (open && body) body.scrollTop = body.scrollHeight;
