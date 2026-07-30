@@ -13,18 +13,11 @@ function injectScriptOnce(src) {
     return scriptLoadPromise;
 }
 /**
- * A reusable in-browser Python session on Pyodide: loads the runtime, builds an environment from a
- * {@link PyodideEnvironmentSpec}, runs code in a PERSISTENT namespace (so it behaves like a REPL, not
- * a series of one-shot scripts), captures stdout, reports errors in the Jupyter shape, and answers
- * Jedi-backed editor completions.
+ * In-browser Python on Pyodide. Runs code in a PERSISTENT namespace, so it behaves like a REPL rather
+ * than a series of one-shot scripts. Free of React and of any domain model.
  *
- * Free of React and of any domain model, so it can be driven from a component, a worker, or a Node
- * test with a Pyodide instance injected via {@link initialize}.
- *
- * Domain-specific setup belongs in a subclass via the {@link bootstrapNamespace} and
- * {@link beforeExecute} hooks — e.g. pre-importing a library's helpers, or snapshotting objects to
- * diff after each run. Consumers that need Jedi completions must include a Jedi requirement in the
- * spec's {@link PyodideEnvironmentSpec.postWheelPackages} (or pypiPinnedPackages).
+ * Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute}. Completions
+ * need Jedi in the spec's package lists.
  */
 export class PyodideSession {
     constructor(spec) {
@@ -40,19 +33,15 @@ export class PyodideSession {
     get isRunning() {
         return this.running;
     }
-    /** The live Pyodide handle. For subclasses that need to run their own domain Python. */
+    /** For subclasses that run their own domain Python. */
     get py() {
         return this.pyodide;
     }
-    /** Override where prebuilt wheels are fetched from, after construction. */
     configure({ wheelBaseUrl }) {
         if (wheelBaseUrl)
             this.spec.wheelBaseUrl = wheelBaseUrl.replace(/\/$/, "");
     }
-    /**
-     * Load Pyodide from the CDN with an explicit `indexURL`, then bootstrap. Idempotent, and reuses a
-     * cached `window.pyodide` if one is already present. Browser-only (touches window/document).
-     */
+    /** Idempotent; reuses a cached `window.pyodide`. Browser-only (touches window/document). */
     async load(onProgress) {
         if (this.initialized)
             return;
@@ -70,9 +59,8 @@ export class PyodideSession {
         await this.initialize(globalWindow.pyodide, onProgress);
     }
     /**
-     * Build the environment on an already-loaded Pyodide instance (from {@link load}, a worker, or a
-     * Node test). Idempotent. `onProgress` is called before each step so a UI can stream a live log
-     * during the slow first load instead of showing a frozen spinner.
+     * Build the environment on an already-loaded Pyodide (so a Node test can inject one). Idempotent.
+     * `onProgress` fires before each step: the load takes ~30s and needs to look alive.
      */
     async initialize(pyodide, onProgress) {
         if (this.initialized)
@@ -138,23 +126,19 @@ export class PyodideSession {
             await micropip.install.callKwargs(`emfs:${fsPath}`, { deps: false });
         }), Promise.resolve());
     }
-    /**
-     * Hook: import the consumer's own libraries / define domain Python once the environment is built.
-     * Runs before the session reports itself initialized. Default: nothing.
-     */
+    /** Hook: define domain Python once the environment is built, before reporting initialized. */
     // eslint-disable-next-line @typescript-eslint/no-unused-vars, class-methods-use-this
     async bootstrapNamespace(log) {
         // no domain setup by default
     }
-    /** Hook: runs immediately before each {@link execute} (e.g. snapshot state to diff after). */
+    /** Hook: runs before each {@link execute} (e.g. snapshot state to diff afterwards). */
     // eslint-disable-next-line class-methods-use-this
     beforeExecute() {
         // nothing by default
     }
     /**
-     * Run user code in the persistent namespace. Returns captured stdout plus a Jupyter-shaped
-     * {@link PythonError} (null on success) — the traceback is NOT dumped into stdout, so a UI can
-     * render it distinctly. Rejects overlapping runs.
+     * Run user code in the persistent namespace. The traceback is returned separately rather than
+     * dumped into stdout, so a UI can render it distinctly. Rejects overlapping runs.
      */
     async execute(code) {
         this.assertReady();
@@ -173,7 +157,7 @@ export class PyodideSession {
             this.running = false;
         }
     }
-    /** Read the structured error the runner recorded for the last execution (null if none). */
+    /** The error the runner recorded for the last execution, if any. */
     get lastError() {
         const raw = this.pyodide.globals.get("_repl_last_error");
         if (!raw)
@@ -183,17 +167,14 @@ export class PyodideSession {
             raw.destroy();
         return error;
     }
-    /**
-     * Jedi completions for `source` at 1-based `line` / 0-based `column`, resolved against the LIVE
-     * namespace (variables, attributes, modules, keywords). Returns [] if not ready.
-     */
+    /** Completions at 1-based `line` / 0-based `column`, against the LIVE namespace. */
     complete(source, line, column) {
         if (!this.initialized)
             return [];
         this.pyodide.globals.set("_repl_c_src", source);
         return JSON.parse(this.pyodide.runPython(`_repl_complete(_repl_c_src, ${line}, ${column})`));
     }
-    /** On-demand signature + docstring for one completion `name` at the same position. */
+    /** Signature + docstring for one completion, resolved on demand. */
     describe(source, line, column, name) {
         if (!this.initialized)
             return null;

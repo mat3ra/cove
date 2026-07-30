@@ -14,7 +14,6 @@ import { makePythonCompletionSource } from "../codemirror/utils/pythonCompletion
 import type { PythonError, PythonSessionInterface } from "../pyodide/PyodideSession";
 import ReplConsole from "./ReplConsole";
 
-/** Lifecycle of the REPL, driving the status chip and the disabled state of Run. */
 export enum ReplStatus {
     Loading = "loading",
     Ready = "ready",
@@ -30,28 +29,21 @@ const STATUS_LABEL: Record<ReplStatus, string> = {
 };
 
 export interface PythonReplProps {
-    /** The Python runtime to drive. A {@link PyodideSession} (or subclass) satisfies this. */
     session: PythonSessionInterface;
-    /** Bootstraps on first `true`, so the (slow) environment load is paid only when actually shown. */
+    /** Bootstraps on first `true`, so the ~30s environment load is paid only when actually shown. */
     show: boolean;
-    /** Initial editor content. */
     defaultCode?: string;
-    /** Called once the environment is ready — e.g. to inject inputs into the namespace. */
+    /** Inject inputs into the namespace once ready. */
     onReady?: () => void;
-    /** Called immediately before each run — e.g. to refresh injected inputs. */
+    /** Refresh injected inputs before each run. */
     onBeforeRun?: () => void;
-    /** Called after a run that succeeded — e.g. to collect results out of the namespace. */
+    /** Collect results out of the namespace after a successful run. */
     onRunSuccess?: () => void;
 }
 
 /**
- * A layout-agnostic, terminal-like Python REPL: editor + Run + status, over a scrollback/error
- * console. Delegates ALL Python work to the injected {@link PythonReplProps.session}, and knows
- * nothing about what that session's namespace contains — domain wiring happens through the
- * `onReady` / `onBeforeRun` / `onRunSuccess` hooks, so this component is reusable as-is.
- *
- * Fills whatever height its parent gives it, so it drops into a drawer, a split pane or a tiling
- * layout unchanged.
+ * Editor + Run + status over an output console. Knows nothing about what the session's namespace
+ * contains — domain wiring goes through the hooks. Fills whatever height its parent gives it.
  */
 function PythonRepl({
     session,
@@ -67,8 +59,6 @@ function PythonRepl({
     const [output, setOutput] = useState<string>("");
     const [error, setError] = useState<PythonError | null>(null);
 
-    // Stable completion source: completes against the live namespace on each keystroke, so it offers
-    // the user's own variables/attributes as well as anything the session pre-imported.
     const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
 
     // Load the environment the first time the panel is shown.
@@ -78,8 +68,7 @@ function PythonRepl({
         (async () => {
             try {
                 setOutput("");
-                // Stream each bootstrap step into the console so the long first load is visibly
-                // progressing (loading runtime → installing packages → importing → ready).
+                // Stream bootstrap steps so the long first load looks alive.
                 await session.load((message) => {
                     if (!cancelled) setOutput((previous) => `${previous}${message}\n`);
                 });

@@ -37,12 +37,8 @@ function ErrorBlock({ error }) {
                 } }, error.traceback)))));
 }
 /**
- * Output console for an in-browser Python REPL: stdout scrollback plus — when the last run failed — a
- * Jupyter/nbformat style error block (bold `ename: evalue` headline + collapsible traceback).
- *
- * Deliberately layout-agnostic and resize-free: it fills whatever height its parent gives it (flex)
- * and only owns its own collapsed/expanded state, so it drops into a drawer, a split pane or a
- * tiling layout without change.
+ * stdout scrollback plus a Jupyter-style error block. Owns only its collapsed/expanded state; sizing
+ * is the parent's job, so it works in a drawer, split pane or tile unchanged.
  */
 function ReplConsole({ output, error, onClear }) {
     const theme = useTheme();
