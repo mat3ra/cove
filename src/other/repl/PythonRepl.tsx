@@ -60,6 +60,7 @@ function PythonRepl({
 
     const completionSource = useMemo(() => makePythonCompletionSource(session), [session]);
 
+    // A ref, not effect deps: an unmemoized callback would otherwise restart the load and wipe output.
     const callbacksRef = useRef({ onReady, onBeforeRun, onRunSuccess });
     callbacksRef.current = { onReady, onBeforeRun, onRunSuccess };
 

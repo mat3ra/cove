@@ -53,11 +53,7 @@ export declare class PyodideSession implements PythonSessionInterface {
     get isInitialized(): boolean;
     get isRunning(): boolean;
     protected get py(): Pyodide;
-    /**
-     * Override where {@link PyodideEnvironmentSpec.wheelFilenames} are fetched from. Exists so a host
-     * app can point at its own static server (or a test at a local one) without rebuilding the spec.
-     * Must be called BEFORE {@link load}; afterwards the wheels are already installed.
-     */
+    /** Point wheel fetches at a host app's own server. Must precede {@link load}. */
     setWheelBaseUrl(wheelBaseUrl: string): void;
     /** Idempotent; reuses a cached `window.pyodide`. Browser-only (touches window/document). */
     load(onProgress?: (message: string) => void): Promise<void>;
@@ -84,18 +80,15 @@ export declare class PyodideSession implements PythonSessionInterface {
     private get lastError();
     /**
      * `line` is 1-based, `column` 0-based (Jedi's convention). Resolved against the LIVE namespace.
-     *
-     * Every argument goes through `globals`, never string interpolation into the Python source — even
-     * the numbers. Interpolating would make this an injection site the moment a caller passes
-     * something that isn't a number, and it costs nothing to be consistent.
+     * Arguments go through `globals`, never interpolated into the source — an injection site the moment
+     * a caller passes a non-number.
      */
     complete(source: string, line: number, column: number): PythonCompletion[];
     describe(source: string, line: number, column: number, name: string): PythonSignatureInfo | null;
     private setCompletionArguments;
     /**
-     * Releases this session's claim on the page's single interpreter so a differently-configured
-     * session can be built. Pyodide itself cannot be unloaded, so already-installed packages stay
-     * installed — this resets our bookkeeping, not the runtime.
+     * Releases the interpreter claim so another session can be built. Pyodide cannot be unloaded, so
+     * this resets our bookkeeping, not the runtime.
      */
     dispose(): void;
     protected assertReady(): void;
