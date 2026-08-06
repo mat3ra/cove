@@ -29,7 +29,7 @@ const EDITOR_MIN_HEIGHT = 80;
  * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
  * Fills whatever height its parent gives it.
  */
-function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onRunSuccess, requirements, }) {
+function PythonRepl({ session, show, preload = false, defaultCode = "", onReady, onBeforeRun, onRunSuccess, requirements, }) {
     const theme = useTheme();
     const [status, setStatus] = useState(ReplStatus.Loading);
     const [code, setCode] = useState(defaultCode);
@@ -40,7 +40,7 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
     const callbacksRef = useRef({ onReady, onBeforeRun, onRunSuccess });
     callbacksRef.current = { onReady, onBeforeRun, onRunSuccess };
     useEffect(() => {
-        if (!show)
+        if (!show && !preload)
             return undefined;
         let cancelled = false;
         (async () => {
@@ -67,7 +67,7 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
         return () => {
             cancelled = true;
         };
-    }, [show, session]);
+    }, [preload, show, session]);
     const runCode = useCallback(async () => {
         var _a, _b, _c, _d;
         if (!session.isInitialized || session.isRunning)

@@ -32,8 +32,10 @@ const EDITOR_MIN_HEIGHT = 80;
 
 export interface PythonReplProps {
     session: PythonSessionInterface;
-    /** Bootstraps on first `true`, so the ~30s environment load is paid only when actually shown. */
+    /** Bootstraps on first `true` unless {@link preload} starts it earlier. */
     show: boolean;
+    /** Prepare in the background before the panel opens. Useful for expensive browser runtimes. */
+    preload?: boolean;
     defaultCode?: string;
     onReady?: () => void;
     onBeforeRun?: () => void;
@@ -48,6 +50,7 @@ export interface PythonReplProps {
 function PythonRepl({
     session,
     show,
+    preload = false,
     defaultCode = "",
     onReady,
     onBeforeRun,
@@ -67,7 +70,7 @@ function PythonRepl({
     callbacksRef.current = { onReady, onBeforeRun, onRunSuccess };
 
     useEffect(() => {
-        if (!show) return undefined;
+        if (!show && !preload) return undefined;
         let cancelled = false;
         (async () => {
             try {
@@ -88,7 +91,7 @@ function PythonRepl({
         return () => {
             cancelled = true;
         };
-    }, [show, session]);
+    }, [preload, show, session]);
 
     const runCode = useCallback(async () => {
         if (!session.isInitialized || session.isRunning) return;

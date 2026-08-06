@@ -189,9 +189,10 @@ export class PyodideSession implements PythonSessionInterface {
      * Fetch each wheel ourselves and install it from Pyodide's virtual FS via `emfs:` — NOT by handing
      * micropip the HTTP URL directly. A static file server serves these with an ETag; on a repeat page
      * load the browser sends a conditional request and gets a 304 with an EMPTY body, which micropip
-     * then tries to unzip -> `BadZipFile: File is not a zip file`. Fetching ourselves with
-     * `cache: "no-store"` sidesteps that. (Appending a cache-busting query param instead is unsafe:
-     * micropip parses the package name/version out of the URL's `.whl` filename.)
+     * then tries to unzip -> `BadZipFile: File is not a zip file`. Fetching ourselves lets the
+     * browser resolve a cached response to a complete body before we write it to the virtual FS.
+     * Wheel filenames contain versions, so keeping them in the browser cache is safe and makes
+     * repeat environment loads substantially cheaper.
      */
     private async fetchWheel(filename: string): Promise<string> {
         const { wheelBaseUrl, wheelFsDir } = this.spec;
@@ -199,7 +200,7 @@ export class PyodideSession implements PythonSessionInterface {
             throw new Error("PyodideSession: wheel filenames given without a wheelBaseUrl.");
         }
         this.pyodide.FS.mkdirTree(wheelFsDir);
-        const response = await fetch(`${wheelBaseUrl}/${filename}`, { cache: "no-store" });
+        const response = await fetch(`${wheelBaseUrl}/${filename}`, { cache: "force-cache" });
         if (!response.ok) {
             throw new Error(`Failed to fetch wheel ${filename}: HTTP ${response.status}`);
         }
@@ -213,13 +214,11 @@ export class PyodideSession implements PythonSessionInterface {
         wheelFilenames: string[],
         log: (message: string) => void = () => undefined,
     ): Promise<void> {
-        await wheelFilenames.reduce(
-            (previous, filename, index) =>
-                previous.then(async () => {
-                    log(`Staging wheel (${index + 1}/${wheelFilenames.length}): ${filename}`);
-                    await this.fetchWheel(filename);
-                }),
-            Promise.resolve(),
+        await Promise.all(
+            wheelFilenames.map(async (filename, index) => {
+                log(`Staging wheel (${index + 1}/${wheelFilenames.length}): ${filename}`);
+                await this.fetchWheel(filename);
+            }),
         );
     }
 

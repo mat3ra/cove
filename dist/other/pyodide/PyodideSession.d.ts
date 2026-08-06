@@ -63,9 +63,10 @@ export declare class PyodideSession implements PythonSessionInterface {
      * Fetch each wheel ourselves and install it from Pyodide's virtual FS via `emfs:` — NOT by handing
      * micropip the HTTP URL directly. A static file server serves these with an ETag; on a repeat page
      * load the browser sends a conditional request and gets a 304 with an EMPTY body, which micropip
-     * then tries to unzip -> `BadZipFile: File is not a zip file`. Fetching ourselves with
-     * `cache: "no-store"` sidesteps that. (Appending a cache-busting query param instead is unsafe:
-     * micropip parses the package name/version out of the URL's `.whl` filename.)
+     * then tries to unzip -> `BadZipFile: File is not a zip file`. Fetching ourselves lets the
+     * browser resolve a cached response to a complete body before we write it to the virtual FS.
+     * Wheel filenames contain versions, so keeping them in the browser cache is safe and makes
+     * repeat environment loads substantially cheaper.
      */
     private fetchWheel;
     /** Make wheels available to a domain installer without installing them here. */

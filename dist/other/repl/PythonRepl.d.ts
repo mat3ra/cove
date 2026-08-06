@@ -9,8 +9,10 @@ export declare enum ReplStatus {
 }
 export interface PythonReplProps {
     session: PythonSessionInterface;
-    /** Bootstraps on first `true`, so the ~30s environment load is paid only when actually shown. */
+    /** Bootstraps on first `true` unless {@link preload} starts it earlier. */
     show: boolean;
+    /** Prepare in the background before the panel opens. Useful for expensive browser runtimes. */
+    preload?: boolean;
     defaultCode?: string;
     onReady?: () => void;
     onBeforeRun?: () => void;
@@ -21,5 +23,5 @@ export interface PythonReplProps {
  * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
  * Fills whatever height its parent gives it.
  */
-declare function PythonRepl({ session, show, defaultCode, onReady, onBeforeRun, onRunSuccess, requirements, }: PythonReplProps): React.JSX.Element;
+declare function PythonRepl({ session, show, preload, defaultCode, onReady, onBeforeRun, onRunSuccess, requirements, }: PythonReplProps): React.JSX.Element;
 export default PythonRepl;

@@ -127,6 +127,20 @@ function stubFetch(response: { ok: boolean; status?: number }) {
     return calls;
 }
 
+function deferredFetch() {
+    const resolvers: Array<() => void> = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).fetch = async () => {
+        await new Promise<void>((resolve) => resolvers.push(resolve));
+        return {
+            ok: true,
+            status: 200,
+            arrayBuffer: async () => new ArrayBuffer(8),
+        };
+    };
+    return resolvers;
+}
+
 async function initializedSession(fake = new FakePyodide()) {
     const session = new PyodideSession(makeSpec());
     await session.initialize(fake);
@@ -173,13 +187,13 @@ describe("PyodideSession.initialize", () => {
         session.dispose();
     });
 
-    it("fetches each wheel with cache: no-store and installs it from the virtual FS", async () => {
+    it("reuses versioned wheels from browser cache and installs them from the virtual FS", async () => {
         const fetchCalls = stubFetch({ ok: true });
         const { fake, session } = await initializedSession();
 
-        // A conditional request would get a 304 with an empty body, which micropip cannot unzip.
+        // We fetch the body ourselves, so versioned wheel URLs can safely use the browser cache.
         assert.deepEqual(fetchCalls, [
-            `https://wheels.example/repl-wheels/${WHEEL} cache=no-store`,
+            `https://wheels.example/repl-wheels/${WHEEL} cache=force-cache`,
         ]);
         assert.deepEqual(fake.createdDirectories, ["/tmp/pyodide_wheels"]);
         assert.deepEqual(fake.writtenFiles, [`/tmp/pyodide_wheels/${WHEEL}`]);
@@ -198,10 +212,28 @@ describe("PyodideSession.initialize", () => {
         await session.stage([WHEEL]);
 
         assert.deepEqual(fetchCalls, [
-            `https://wheels.example/repl-wheels/${WHEEL} cache=no-store`,
+            `https://wheels.example/repl-wheels/${WHEEL} cache=force-cache`,
         ]);
         assert.deepEqual(fake.writtenFiles, [`/tmp/pyodide_wheels/${WHEEL}`]);
         assert.equal(fake.installs.some(({ spec }) => spec.includes(WHEEL)), false);
+        session.dispose();
+    });
+
+    it("fetches independently staged wheels concurrently", async () => {
+        const fetchResolvers = deferredFetch();
+        const session = new StagingSession({
+            ...makeSpec(),
+            wheelFilenames: [],
+        });
+        const fake = new FakePyodide();
+
+        await session.initialize(fake);
+        const staging = session.stage(["first.whl", "second.whl"]);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        assert.equal(fetchResolvers.length, 2);
+        fetchResolvers.forEach((resolve) => resolve());
+        await staging;
         session.dispose();
     });
 
