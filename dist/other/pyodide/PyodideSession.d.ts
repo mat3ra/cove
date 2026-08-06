@@ -67,6 +67,9 @@ export declare class PyodideSession implements PythonSessionInterface {
      * `cache: "no-store"` sidesteps that. (Appending a cache-busting query param instead is unsafe:
      * micropip parses the package name/version out of the URL's `.whl` filename.)
      */
+    private fetchWheel;
+    /** Make wheels available to a domain installer without installing them here. */
+    protected stageWheels(wheelFilenames: string[], log?: (message: string) => void): Promise<void>;
     private installWheels;
     /** Runs after the environment is built, before the session reports itself initialized. */
     protected bootstrapNamespace(log: (message: string) => void): Promise<void>;

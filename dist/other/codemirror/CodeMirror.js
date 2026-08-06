@@ -11,6 +11,7 @@ import CodeMirrorBase from "@uiw/react-codemirror";
 import React from "react";
 import { linterGenerator } from "./utils/linterGenerator";
 const LANGUAGE_EXTENSIONS_MAP = {
+    text: [],
     python: [python()],
     shell: [StreamLanguage.define(shell)],
     fortran: [StreamLanguage.define(fortran)],

@@ -1,5 +1,6 @@
 import React from "react";
 import type { PythonSessionInterface } from "../pyodide/PyodideSession";
+import { type ReplRequirements } from "./ReplConsole";
 export declare enum ReplStatus {
     Loading = "loading",
     Ready = "ready",
@@ -14,10 +15,11 @@ export interface PythonReplProps {
     onReady?: () => void;
     onBeforeRun?: () => void;
     onRunSuccess?: () => void;
+    requirements?: ReplRequirements;
 }
 /**
  * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
  * Fills whatever height its parent gives it.
  */
-declare function PythonRepl({ session, show, defaultCode, onReady, onBeforeRun, onRunSuccess, }: PythonReplProps): React.JSX.Element;
+declare function PythonRepl({ session, show, defaultCode, onReady, onBeforeRun, onRunSuccess, requirements, }: PythonReplProps): React.JSX.Element;
 export default PythonRepl;

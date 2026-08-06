@@ -12,7 +12,7 @@ import { showErrorAlert } from "../alerts";
 import CodeMirror, { type CodeMirrorProps } from "../codemirror";
 import { makePythonCompletionSource } from "../codemirror/utils/pythonCompletions";
 import type { PythonError, PythonSessionInterface } from "../pyodide/PyodideSession";
-import ReplConsole from "./ReplConsole";
+import ReplConsole, { type ReplRequirements } from "./ReplConsole";
 
 export enum ReplStatus {
     Loading = "loading",
@@ -38,6 +38,7 @@ export interface PythonReplProps {
     onReady?: () => void;
     onBeforeRun?: () => void;
     onRunSuccess?: () => void;
+    requirements?: ReplRequirements;
 }
 
 /**
@@ -51,6 +52,7 @@ function PythonRepl({
     onReady,
     onBeforeRun,
     onRunSuccess,
+    requirements,
 }: PythonReplProps) {
     const theme = useTheme();
     const [status, setStatus] = useState<ReplStatus>(ReplStatus.Loading);
@@ -112,6 +114,26 @@ function PythonRepl({
 
     const isBusy = status === ReplStatus.Loading || status === ReplStatus.Running;
 
+    const applyRequirements = useCallback(
+        async (content: string, profile: string) => {
+            if (!requirements || isBusy) return;
+            setStatus(ReplStatus.Running);
+            setError(null);
+            try {
+                await requirements.onApply(content, profile, (message) =>
+                    setOutput((previous) => `${previous}${message}\n`),
+                );
+                setStatus(ReplStatus.Ready);
+            } catch (installError) {
+                setStatus(ReplStatus.Error);
+                showErrorAlert(
+                    installError instanceof Error ? installError.message : String(installError),
+                );
+            }
+        },
+        [isBusy, requirements],
+    );
+
     return (
         <Box
             id="python-repl"
@@ -169,6 +191,9 @@ function PythonRepl({
                     setOutput("");
                     setError(null);
                 }}
+                requirements={requirements}
+                busy={isBusy}
+                onApplyRequirements={applyRequirements}
             />
             {/* matplotlib target, per https://github.com/pyodide/matplotlib-pyodide */}
             <Box id="pyodide-plot-target-repl" />

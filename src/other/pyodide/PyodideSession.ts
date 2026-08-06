@@ -193,28 +193,47 @@ export class PyodideSession implements PythonSessionInterface {
      * `cache: "no-store"` sidesteps that. (Appending a cache-busting query param instead is unsafe:
      * micropip parses the package name/version out of the URL's `.whl` filename.)
      */
+    private async fetchWheel(filename: string): Promise<string> {
+        const { wheelBaseUrl, wheelFsDir } = this.spec;
+        if (!wheelBaseUrl) {
+            throw new Error("PyodideSession: wheel filenames given without a wheelBaseUrl.");
+        }
+        this.pyodide.FS.mkdirTree(wheelFsDir);
+        const response = await fetch(`${wheelBaseUrl}/${filename}`, { cache: "no-store" });
+        if (!response.ok) {
+            throw new Error(`Failed to fetch wheel ${filename}: HTTP ${response.status}`);
+        }
+        const fsPath = `${wheelFsDir}/${filename}`;
+        this.pyodide.FS.writeFile(fsPath, new Uint8Array(await response.arrayBuffer()));
+        return fsPath;
+    }
+
+    /** Make wheels available to a domain installer without installing them here. */
+    protected async stageWheels(
+        wheelFilenames: string[],
+        log: (message: string) => void = () => undefined,
+    ): Promise<void> {
+        await wheelFilenames.reduce(
+            (previous, filename, index) =>
+                previous.then(async () => {
+                    log(`Staging wheel (${index + 1}/${wheelFilenames.length}): ${filename}`);
+                    await this.fetchWheel(filename);
+                }),
+            Promise.resolve(),
+        );
+    }
+
     private async installWheels(micropip: Pyodide, log: (message: string) => void): Promise<void> {
-        const { wheelFilenames = [], wheelBaseUrl, wheelFsDir } = this.spec;
+        const { wheelFilenames = [], wheelBaseUrl } = this.spec;
         if (!wheelFilenames.length) return;
         if (!wheelBaseUrl) {
             throw new Error("PyodideSession: wheelFilenames given without a wheelBaseUrl.");
         }
-        this.pyodide.FS.mkdirTree(wheelFsDir);
         await wheelFilenames.reduce(
             (previous, filename, index) =>
                 previous.then(async () => {
                     log(`Installing wheel (${index + 1}/${wheelFilenames.length}): ${filename}`);
-                    const response = await fetch(`${wheelBaseUrl}/${filename}`, {
-                        cache: "no-store",
-                    });
-                    if (!response.ok) {
-                        throw new Error(
-                            `Failed to fetch wheel ${filename}: HTTP ${response.status}`,
-                        );
-                    }
-                    const bytes = new Uint8Array(await response.arrayBuffer());
-                    const fsPath = `${wheelFsDir}/${filename}`;
-                    this.pyodide.FS.writeFile(fsPath, bytes);
+                    const fsPath = await this.fetchWheel(filename);
                     // deps=False is essential: these wheels exist precisely because their transitive
                     // deps either don't build under Pyodide or conflict with the pinned set.
                     await micropip.install.callKwargs(`emfs:${fsPath}`, { deps: false });

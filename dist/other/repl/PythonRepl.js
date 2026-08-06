@@ -29,7 +29,7 @@ const EDITOR_MIN_HEIGHT = 80;
  * Knows nothing about what the session's namespace contains — domain wiring goes through the hooks.
  * Fills whatever height its parent gives it.
  */
-function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onRunSuccess, }) {
+function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onRunSuccess, requirements, }) {
     const theme = useTheme();
     const [status, setStatus] = useState(ReplStatus.Loading);
     const [code, setCode] = useState(defaultCode);
@@ -95,6 +95,20 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
         }
     }, [code, session]);
     const isBusy = status === ReplStatus.Loading || status === ReplStatus.Running;
+    const applyRequirements = useCallback(async (content, profile) => {
+        if (!requirements || isBusy)
+            return;
+        setStatus(ReplStatus.Running);
+        setError(null);
+        try {
+            await requirements.onApply(content, profile, (message) => setOutput((previous) => `${previous}${message}\n`));
+            setStatus(ReplStatus.Ready);
+        }
+        catch (installError) {
+            setStatus(ReplStatus.Error);
+            showErrorAlert(installError instanceof Error ? installError.message : String(installError));
+        }
+    }, [isBusy, requirements]);
     return (React.createElement(Box, { id: "python-repl", sx: { display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }, 
         // Capture phase so we intercept Shift/Cmd/Ctrl+Enter BEFORE CodeMirror inserts a newline.
         onKeyDownCapture: (event) => {
@@ -118,7 +132,7 @@ function PythonRepl({ session, show, defaultCode = "", onReady, onBeforeRun, onR
         React.createElement(ReplConsole, { output: output, error: error, onClear: () => {
                 setOutput("");
                 setError(null);
-            } }),
+            }, requirements: requirements, busy: isBusy, onApplyRequirements: applyRequirements }),
         React.createElement(Box, { id: "pyodide-plot-target-repl" })));
 }
 export default PythonRepl;

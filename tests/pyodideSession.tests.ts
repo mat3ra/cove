@@ -97,6 +97,12 @@ class FakePyodide {
 
 const WHEEL = "example_package-1.0.0-py3-none-any.whl";
 
+class StagingSession extends PyodideSession {
+    async stage(filenames: string[]): Promise<void> {
+        await this.stageWheels(filenames);
+    }
+}
+
 const makeSpec = () => ({
     indexUrl: "https://cdn.example/pyodide/v0.24.0/full/",
     loadPackages: ["numpy"],
@@ -177,6 +183,25 @@ describe("PyodideSession.initialize", () => {
         ]);
         assert.deepEqual(fake.createdDirectories, ["/tmp/pyodide_wheels"]);
         assert.deepEqual(fake.writtenFiles, [`/tmp/pyodide_wheels/${WHEEL}`]);
+        session.dispose();
+    });
+
+    it("can stage wheels for a package-owned installer without installing them", async () => {
+        const fetchCalls = stubFetch({ ok: true });
+        const session = new StagingSession({
+            ...makeSpec(),
+            wheelFilenames: [],
+        });
+        const fake = new FakePyodide();
+
+        await session.initialize(fake);
+        await session.stage([WHEEL]);
+
+        assert.deepEqual(fetchCalls, [
+            `https://wheels.example/repl-wheels/${WHEEL} cache=no-store`,
+        ]);
+        assert.deepEqual(fake.writtenFiles, [`/tmp/pyodide_wheels/${WHEEL}`]);
+        assert.equal(fake.installs.some(({ spec }) => spec.includes(WHEEL)), false);
         session.dispose();
     });
 
