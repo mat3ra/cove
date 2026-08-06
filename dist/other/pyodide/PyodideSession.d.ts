@@ -70,8 +70,10 @@ export declare class PyodideSession implements PythonSessionInterface {
     private installWheels;
     /** Runs after the environment is built, before the session reports itself initialized. */
     protected bootstrapNamespace(log: (message: string) => void): Promise<void>;
-    /** Runs before each {@link execute} — e.g. to snapshot state and diff it afterwards. */
-    protected beforeExecute(): void;
+    /** Runs before each {@link execute}. */
+    protected beforeExecute(): void | Promise<void>;
+    /** Runs after successful or failed user code, while the persistent namespace is still current. */
+    protected afterExecute(): void | Promise<void>;
     /**
      * The traceback comes back separately rather than in stdout, so a UI can render it distinctly.
      * Rejects overlapping runs.

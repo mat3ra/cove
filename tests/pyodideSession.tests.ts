@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import PyodideSession from "../src/other/pyodide/PyodideSession";
+import { PyodideSession } from "../src/other/pyodide/PyodideSession";
 
 /**
  * A stand-in for Pyodide covering only the surface PyodideSession touches. This is what
@@ -52,7 +52,9 @@ class FakePyodide {
     }
 
     // eslint-disable-next-line class-methods-use-this
-    setStderr() {}
+    setStderr() {
+        return undefined;
+    }
 
     async loadPackage(packages: string[]) {
         this.loadedPackages.push(...packages);
@@ -230,6 +232,34 @@ describe("PyodideSession.initialize", () => {
 });
 
 describe("PyodideSession.execute", () => {
+    it("awaits beforeExecute and afterExecute around every user run", async () => {
+        stubFetch({ ok: true });
+        class HookSession extends PyodideSession {
+            events: string[] = [];
+
+            protected beforeExecute(): void {
+                this.events.push("before");
+            }
+
+            protected afterExecute(): void {
+                this.events.push("after");
+            }
+        }
+        const session = new HookSession(makeSpec());
+        const fake = new FakePyodide();
+        const originalRun = fake.runPythonAsync.bind(fake);
+        fake.runPythonAsync = async (code: string) => {
+            session.events.push("execute");
+            await originalRun(code);
+        };
+        await session.initialize(fake);
+
+        await session.execute("1 + 1");
+
+        assert.deepEqual(session.events, ["before", "execute", "after"]);
+        session.dispose();
+    });
+
     it("returns ok with the buffered stdout when the run succeeds", async () => {
         stubFetch({ ok: true });
         const { session, fake } = await initializedSession();

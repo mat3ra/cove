@@ -229,9 +229,15 @@ export class PyodideSession implements PythonSessionInterface {
         // no domain setup by default
     }
 
-    /** Runs before each {@link execute} — e.g. to snapshot state and diff it afterwards. */
+    /** Runs before each {@link execute}. */
     // eslint-disable-next-line class-methods-use-this
-    protected beforeExecute(): void {
+    protected beforeExecute(): void | Promise<void> {
+        // nothing by default
+    }
+
+    /** Runs after successful or failed user code, while the persistent namespace is still current. */
+    // eslint-disable-next-line class-methods-use-this
+    protected afterExecute(): void | Promise<void> {
         // nothing by default
     }
 
@@ -245,10 +251,11 @@ export class PyodideSession implements PythonSessionInterface {
         this.running = true;
         this.outputBuffer = "";
         try {
-            this.beforeExecute();
+            await this.beforeExecute();
             this.pyodide.globals.set("_repl_src", code);
             // The runner catches user errors internally, so this only rejects on infra failures.
             await this.pyodide.runPythonAsync("await _repl_execute(_repl_src)");
+            await this.afterExecute();
             return { ok: !this.lastError, output: this.outputBuffer, error: this.lastError };
         } finally {
             this.running = false;
