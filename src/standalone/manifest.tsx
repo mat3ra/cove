@@ -13,9 +13,15 @@ import TotalWidget from "../mui/components/custom/widgets/total-widget/TotalWidg
 import Dialog from "../mui/components/dialog/Dialog";
 import IconByName from "../mui/components/icon/IconByName";
 import LinearProgress from "../mui/components/linear-progress/LinearProgress";
+import MetricTile from "../mui/components/metric/MetricTile";
+import SegmentedMeter from "../mui/components/metric/SegmentedMeter";
+import NumericStepperInput from "../mui/components/numeric-stepper/NumericStepperInput";
 import InfoPopover from "../mui/components/popover/info-popover/InfoPopover";
 import RadioGroup from "../mui/components/radio-group/RadioGroup";
 import BasicSelect from "../mui/components/select/BasicSelect";
+import SelectableCard, {
+    SelectableCardGroup,
+} from "../mui/components/selectable-card/SelectableCard";
 import { JOB_STATUS_PRESENTATION } from "../mui/components/status/jobStatusPresentation";
 import StatusChip, { JobStatusChip } from "../mui/components/status/StatusChip";
 import StyledStepper from "../mui/components/stepper/Stepper";
@@ -152,6 +158,87 @@ function TabsMenuDemo() {
                 activeTabIndex={activeTabIndex}
             />
             <Typography variant="body2">Active tab index: {activeTabIndex}</Typography>
+        </Stack>
+    );
+}
+
+function NumericStepperDemo() {
+    const [nodes, setNodes] = useState<number | undefined>(1);
+    const [cores, setCores] = useState<number | undefined>(16);
+
+    return (
+        <Stack spacing={3} sx={{ maxWidth: 320 }}>
+            <NumericStepperInput
+                label="Nodes"
+                value={nodes}
+                onChange={setNodes}
+                min={1}
+                max={4}
+                helperText="1 to 4 on cluster-007"
+            />
+            <NumericStepperInput
+                label="Cores per node"
+                value={cores}
+                onChange={setCores}
+                min={1}
+                max={32}
+                step={4}
+                unit="cores"
+                error={cores !== undefined && cores > 32}
+                helperText={
+                    cores !== undefined && cores > 32
+                        ? "Over the 32-core limit"
+                        : "1 to 32 on cluster-007"
+                }
+            />
+            <Typography variant="caption" color="text.secondary">
+                The steppers stop at the bounds, so nudging cannot produce an invalid value. Typing
+                past them is still allowed — clamping mid-keystroke would turn a typed
+                &ldquo;64&rdquo; into &ldquo;6&rdquo; — and reports as an error instead.
+            </Typography>
+        </Stack>
+    );
+}
+
+function SelectableCardDemo() {
+    const [selected, setSelected] = useState("cluster-007");
+
+    return (
+        <Stack spacing={2} sx={{ maxWidth: 460 }}>
+            <SelectableCardGroup label="Cluster">
+                <SelectableCard
+                    title="cluster-007"
+                    subtitle="queue OR · up to 4 nodes × 32 cores"
+                    selected={selected === "cluster-007"}
+                    onSelect={() => setSelected("cluster-007")}
+                    badge={<StatusChip tone="success" iconName="shapes.check" label="~8 min" />}>
+                    <Stack direction="row" spacing={3}>
+                        <MetricTile size="small" label="Price" value="$0.08" unit="/ core·h" />
+                        <MetricTile size="small" label="Walltime" value="12" unit="h max" />
+                    </Stack>
+                </SelectableCard>
+                <SelectableCard
+                    title="cluster-001"
+                    subtitle="queue OR · up to 2 nodes × 16 cores"
+                    selected={selected === "cluster-001"}
+                    onSelect={() => setSelected("cluster-001")}
+                    badge={<StatusChip tone="warning" iconName="shapes.loop" label="~25 min" />}>
+                    <Stack direction="row" spacing={3}>
+                        <MetricTile size="small" label="Price" value="$0.05" unit="/ core·h" />
+                        <MetricTile size="small" label="Walltime" value="6" unit="h max" />
+                    </Stack>
+                </SelectableCard>
+                <SelectableCard
+                    title="cluster-042"
+                    subtitle="queue SR"
+                    disabled
+                    disabledReason="Offline for maintenance until Friday"
+                />
+            </SelectableCardGroup>
+            <Typography variant="caption" color="text.secondary">
+                A dropdown shows one option at a time and hides everything a reader would choose
+                between. These render as one radio group, so it is heard as a single choice too.
+            </Typography>
         </Stack>
     );
 }
@@ -322,6 +409,80 @@ export const GALLERY: GalleryEntry[] = [
                 </Stack>
             </Stack>
         ),
+    },
+    {
+        category: "Display",
+        name: "MetricTile",
+        source: "src/mui/components/metric/MetricTile.tsx",
+        render: () => (
+            <Stack spacing={2}>
+                <Stack direction="row" spacing={4} flexWrap="wrap" useFlexGap>
+                    <MetricTile
+                        label="Core-hours"
+                        value="64"
+                        unit="core·h"
+                        caption="1 × 16 × 4 h"
+                    />
+                    <MetricTile label="Cost" value="$5.12" caption="at $0.08 / core·h" />
+                    <MetricTile label="Queue wait" value="~8" unit="min" caption="queue OR" />
+                    <MetricTile
+                        label="Walltime"
+                        value="24"
+                        unit="h"
+                        tone="error"
+                        caption="over the 12 h queue limit"
+                    />
+                    <MetricTile label="Cost" caption="no pricing published" />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                    The last tile has no value: it renders an em dash, because in an estimate
+                    &ldquo;unknown&rdquo; and &ldquo;free&rdquo; must not look the same.
+                </Typography>
+            </Stack>
+        ),
+    },
+    {
+        category: "Display",
+        name: "SegmentedMeter",
+        source: "src/mui/components/metric/SegmentedMeter.tsx",
+        render: () => (
+            <Stack spacing={4} sx={{ maxWidth: 460 }}>
+                <SegmentedMeter
+                    label="Monthly quota"
+                    total={500}
+                    caption="436 of 500 core·h would remain"
+                    segments={[
+                        { label: "Already used", value: 120, color: "primary.main" },
+                        { label: "This job", value: 64, color: "warning.main", isProjected: true },
+                    ]}
+                />
+                <SegmentedMeter
+                    label="Monthly quota"
+                    total={500}
+                    caption="1536 core·h — over by 1156"
+                    segments={[
+                        { label: "Already used", value: 120, color: "primary.main" },
+                        { label: "This job", value: 1536, color: "error.main", isProjected: true },
+                    ]}
+                />
+                <Typography variant="caption" color="text.secondary">
+                    The second bar is not clamped at 100%: hiding the overflow would hide the one
+                    thing worth seeing. The hatched slice has not happened yet.
+                </Typography>
+            </Stack>
+        ),
+    },
+    {
+        category: "Inputs & Controls",
+        name: "NumericStepperInput",
+        source: "src/mui/components/numeric-stepper/NumericStepperInput.tsx",
+        render: () => <NumericStepperDemo />,
+    },
+    {
+        category: "Inputs & Controls",
+        name: "SelectableCard",
+        source: "src/mui/components/selectable-card/SelectableCard.tsx",
+        render: () => <SelectableCardDemo />,
     },
     {
         category: "Display",
