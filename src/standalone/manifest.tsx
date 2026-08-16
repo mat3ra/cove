@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import Accordion from "../mui/components/accordion/Accordion";
 import ButtonMultiSelect from "../mui/components/button/ButtonMultiSelect";
 import CheckboxComponent from "../mui/components/checkbox/Checkbox";
+import CopyId from "../mui/components/copy-id/CopyId";
 import InfoWidget from "../mui/components/custom/widgets/info-widget/InfoWidget";
 import TotalWidget from "../mui/components/custom/widgets/total-widget/TotalWidget";
 import Dialog from "../mui/components/dialog/Dialog";
@@ -15,6 +16,8 @@ import LinearProgress from "../mui/components/linear-progress/LinearProgress";
 import InfoPopover from "../mui/components/popover/info-popover/InfoPopover";
 import RadioGroup from "../mui/components/radio-group/RadioGroup";
 import BasicSelect from "../mui/components/select/BasicSelect";
+import { JOB_STATUS_PRESENTATION } from "../mui/components/status/jobStatusPresentation";
+import StatusChip, { JobStatusChip } from "../mui/components/status/StatusChip";
 import StyledStepper from "../mui/components/stepper/Stepper";
 import TabsMenu from "../mui/components/tabs/TabsMenu";
 import { AccountCard } from "../mui-composed/components/account/AccountCard";
@@ -292,6 +295,44 @@ export const GALLERY: GalleryEntry[] = [
                 iconName="entities.workflow"
                 boxColor="#3d5afe22"
             />
+        ),
+    },
+    {
+        category: "Display",
+        name: "StatusChip",
+        source: "src/mui/components/status/StatusChip.tsx",
+        render: () => (
+            <Stack spacing={2}>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <StatusChip tone="neutral" iconName="actions.edit" label="Draft" />
+                    <StatusChip tone="info" iconName="shapes.loop" label="Queued" />
+                    <StatusChip tone="primary" iconName="actions.send" label="Submitted" />
+                    <StatusChip tone="warning" iconName="actions.play" label="Running" />
+                    <StatusChip tone="success" iconName="shapes.check" label="Finished" />
+                    <StatusChip tone="error" iconName="actions.cancel" label="Error" />
+                </Stack>
+                <Typography variant="caption" color="text.secondary">
+                    JobStatusChip — tone, icon and wording resolved from a job status:
+                </Typography>
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    {Object.keys(JOB_STATUS_PRESENTATION).map((status) => (
+                        <JobStatusChip key={status} status={status} title={status} />
+                    ))}
+                    <JobStatusChip status="something-new" title="unmapped status" />
+                </Stack>
+            </Stack>
+        ),
+    },
+    {
+        category: "Display",
+        name: "CopyId",
+        source: "src/mui/components/copy-id/CopyId.tsx",
+        render: () => (
+            <Stack direction="row" spacing={2} alignItems="center">
+                <CopyId value="6ad0fa11-2db6-51ab-8ff9-638ed36d60b2" />
+                <CopyId value="6ad0fa11-2db6-51ab-8ff9-638ed36d60b2" visibleCharacters={8} />
+                <CopyId value="c2bfdd05-9192-5160-b0f0-4248441a92b5" label="flowchart id" />
+            </Stack>
         ),
     },
     {

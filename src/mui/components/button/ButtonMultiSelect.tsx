@@ -59,20 +59,29 @@ function ButtonMultiSelect({
     isCompact = false,
 }: ButtonMultiSelectProps) {
     const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
-    const [selectedOption, setSelectedOption] = useState<ButtonConfig>(buttonConfigs[0]);
+    // Track the *id* of the selection, not the config object. Storing the object
+    // snapshotted whichever `buttonConfigs[0]` happened to be passed on mount and
+    // never resynced, so the component kept calling the first `onClick` closure it
+    // ever received: a parent that re-rendered with fresh handlers (or a changed
+    // label) was ignored for the lifetime of the component, and consumers had to
+    // work around it by reading their own state at click time.
+    const [selectedOptionId, setSelectedOptionId] = useState<string | null>(null);
     const mainButtonRef = React.useRef<HTMLButtonElement>(null);
     const open = Boolean(anchorEl);
 
+    // Resolved against the live prop on every render, so handlers are never stale.
+    const selectedOption =
+        buttonConfigs.find((config) => config.id === selectedOptionId) ?? buttonConfigs[0];
+
     // load saved option from local storage
     useEffect(() => {
-        const savedOptionKey = localStorage.getItem(localStorageKey);
-        const savedOption = buttonConfigs.find((config) => config.id === savedOptionKey);
+        const savedOptionId = localStorage.getItem(localStorageKey);
 
         // check if value matches one of the button configs
-        if (savedOption) {
-            setSelectedOption(savedOption);
+        if (savedOptionId && buttonConfigs.some((config) => config.id === savedOptionId)) {
+            setSelectedOptionId(savedOptionId);
         }
-    }, []);
+    }, [localStorageKey, buttonConfigs]);
 
     const handleExpandClick = useCallback(() => {
         setAnchorEl(mainButtonRef.current);
@@ -82,11 +91,20 @@ function ButtonMultiSelect({
         setAnchorEl(null);
     }, []);
 
-    const handleMenuClick = useCallback((config: ButtonConfig) => {
-        localStorage.setItem("selectedSaveOption", config.id);
-        setSelectedOption(config);
-        handleClose();
-    }, []);
+    const handleMenuClick = useCallback(
+        (config: ButtonConfig) => {
+            // Write under the same key the effect above reads. This used to persist
+            // to a hard-coded "selectedSaveOption", so every instance whose
+            // localStorageKey was anything else silently forgot the choice on reload.
+            localStorage.setItem(localStorageKey, config.id);
+            setSelectedOptionId(config.id);
+            handleClose();
+        },
+        [localStorageKey, handleClose],
+    );
+
+    // Nothing to offer: render nothing rather than dereferencing an empty list.
+    if (!selectedOption) return null;
 
     return (
         <>

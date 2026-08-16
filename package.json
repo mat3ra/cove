@@ -8,7 +8,8 @@
         "transpile": "tsc",
         "prettier": "prettier --check src",
         "prepare": "husky install",
-        "test": "npm run lint && npm run transpile",
+        "test:unit": "node --import tsx --test tests/*.tests.ts",
+        "test": "npm run lint && npm run transpile && npm run test:unit",
         "dev:standalone": "vite",
         "build:standalone": "vite build"
     },

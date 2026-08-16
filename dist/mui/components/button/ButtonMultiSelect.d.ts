@@ -39,5 +39,5 @@ type ButtonMultiSelectProps = {
     isLoading?: boolean;
     isCompact?: boolean;
 };
-declare function ButtonMultiSelect({ id, buttonConfigs, size, localStorageKey, isLoading, isCompact, }: ButtonMultiSelectProps): React.JSX.Element;
+declare function ButtonMultiSelect({ id, buttonConfigs, size, localStorageKey, isLoading, isCompact, }: ButtonMultiSelectProps): React.JSX.Element | null;
 export default ButtonMultiSelect;
