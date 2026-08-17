@@ -1,3 +1,4 @@
+import { designerDark, designerLight } from "./designer";
 export declare const paletteLight: {
     primary: {
         main: string;
@@ -18,12 +19,7 @@ export declare const paletteLight: {
         disabledBackground: string;
         focus: string;
     };
-    unitTypes: {
-        execution: string;
-        condition: string;
-        assignment: string;
-        assertion: string;
-    };
+    unitTypes: Record<string, string>;
     background: {
         paper: string;
         default: string;
@@ -36,6 +32,7 @@ export declare const paletteLight: {
         main: string;
         light: string;
     };
+    successText: string;
     success: {
         main: string;
         dark: string;
@@ -68,6 +65,33 @@ export declare const paletteDark: {
     secondary: {
         main: string;
     };
+    text: {
+        primary: string;
+        secondary: string;
+        disabled: string;
+    };
+    action: {
+        active: string;
+        hover: string;
+        selected: string;
+        disabled: string;
+        disabledBackground: string;
+        focus: string;
+    };
+    unitTypes: Record<string, string>;
+    background: {
+        paper: string;
+        default: string;
+    };
+    border: {
+        main: string;
+        dark: string;
+    };
+    icon: {
+        main: string;
+        light: string;
+    };
+    successText: string;
     success: {
         main: string;
         dark: string;
@@ -93,3 +117,5 @@ export declare const paletteDark: {
         contrastText: string;
     };
 };
+export { designerDark, designerLight };
+export type { DesignerTokens, UnitTypeToken } from "./designer";
