@@ -14,6 +14,7 @@ import Dialog from "../mui/components/dialog/Dialog";
 import IconByName from "../mui/components/icon/IconByName";
 import { JobLifecycleTimeline } from "../mui/components/lifecycle/LifecycleTimeline";
 import LinearProgress from "../mui/components/linear-progress/LinearProgress";
+import LogViewer from "../mui/components/log-viewer/LogViewer";
 import MetricTile from "../mui/components/metric/MetricTile";
 import SegmentedMeter from "../mui/components/metric/SegmentedMeter";
 import NumericStepperInput from "../mui/components/numeric-stepper/NumericStepperInput";
@@ -458,6 +459,32 @@ export const GALLERY: GalleryEntry[] = [
                     stages it never reached — &ldquo;upcoming&rdquo; would suggest it still might.
                     Timestamps come from the status track and surface on hover. The last row is the
                     compact variant for tight headers.
+                </Typography>
+            </Stack>
+        ),
+    },
+    {
+        category: "Display",
+        name: "LogViewer",
+        source: "src/mui/components/log-viewer/LogViewer.tsx",
+        render: () => (
+            <Stack spacing={3} sx={{ maxWidth: 640 }}>
+                <LogViewer
+                    label="Job log"
+                    rows={10}
+                    text={Array.from(
+                        { length: 40 },
+                        (_, i) =>
+                            `[${String(i).padStart(4, "0")}] scf iteration ${
+                                i + 1
+                            }  total energy = -${(21.3 + i / 1000).toFixed(6)} Ry`,
+                    ).join("\n")}
+                />
+                <LogViewer label="Job log" rows={4} />
+                <Typography variant="caption" color="text.secondary">
+                    The view follows the end until you scroll up, then stops and offers to resume —
+                    a log that always jumps to the bottom cannot be read while it is being written,
+                    and one that never does makes you chase it.
                 </Typography>
             </Stack>
         ),
