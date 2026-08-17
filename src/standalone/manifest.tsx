@@ -12,6 +12,7 @@ import InfoWidget from "../mui/components/custom/widgets/info-widget/InfoWidget"
 import TotalWidget from "../mui/components/custom/widgets/total-widget/TotalWidget";
 import Dialog from "../mui/components/dialog/Dialog";
 import IconByName from "../mui/components/icon/IconByName";
+import { JobLifecycleTimeline } from "../mui/components/lifecycle/LifecycleTimeline";
 import LinearProgress from "../mui/components/linear-progress/LinearProgress";
 import MetricTile from "../mui/components/metric/MetricTile";
 import SegmentedMeter from "../mui/components/metric/SegmentedMeter";
@@ -407,6 +408,57 @@ export const GALLERY: GalleryEntry[] = [
                     ))}
                     <JobStatusChip status="something-new" title="unmapped status" />
                 </Stack>
+            </Stack>
+        ),
+    },
+    {
+        category: "Display",
+        name: "LifecycleTimeline",
+        source: "src/mui/components/lifecycle/LifecycleTimeline.tsx",
+        render: () => (
+            <Stack spacing={3}>
+                <JobLifecycleTimeline status="pre-submission" />
+                <JobLifecycleTimeline
+                    status="active"
+                    statusTrack={[
+                        { status: "pre-submission", trackedAt: 1755000000 },
+                        { status: "submitted", trackedAt: 1755000600 },
+                        { status: "active", trackedAt: 1755001200 },
+                    ]}
+                />
+                <JobLifecycleTimeline
+                    status="finished"
+                    statusTrack={[
+                        { status: "pre-submission", trackedAt: 1755000000 },
+                        { status: "submitted", trackedAt: 1755000600 },
+                        { status: "active", trackedAt: 1755001200 },
+                        { status: "finished", trackedAt: 1755004800 },
+                    ]}
+                />
+                <JobLifecycleTimeline
+                    status="error"
+                    statusTrack={[
+                        { status: "pre-submission", trackedAt: 1755000000 },
+                        { status: "submitted", trackedAt: 1755000600 },
+                        { status: "active", trackedAt: 1755001200 },
+                        { status: "error", trackedAt: 1755002000 },
+                    ]}
+                />
+                <JobLifecycleTimeline
+                    status="terminated"
+                    statusTrack={[
+                        { status: "pre-submission", trackedAt: 1755000000 },
+                        { status: "submitted", trackedAt: 1755000600 },
+                        { status: "terminated", trackedAt: 1755000900 },
+                    ]}
+                />
+                <JobLifecycleTimeline status="active" compact />
+                <Typography variant="caption" color="text.secondary">
+                    A failed job shows the failure where the finish would have been, and greys the
+                    stages it never reached — &ldquo;upcoming&rdquo; would suggest it still might.
+                    Timestamps come from the status track and surface on hover. The last row is the
+                    compact variant for tight headers.
+                </Typography>
             </Stack>
         ),
     },
