@@ -31,8 +31,8 @@ import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import React, { useCallback, useEffect, useState } from "react";
 import IconByName from "../icon/IconByName";
+import { isRestorableOptionId, resolveSelectedOption } from "./selectedOption";
 function ButtonMultiSelect({ id, buttonConfigs, size = "small", localStorageKey, isLoading = false, isCompact = false, }) {
-    var _a;
     const [anchorEl, setAnchorEl] = useState(null);
     // Track the *id* of the selection, not the config object. Storing the object
     // snapshotted whichever `buttonConfigs[0]` happened to be passed on mount and
@@ -44,12 +44,12 @@ function ButtonMultiSelect({ id, buttonConfigs, size = "small", localStorageKey,
     const mainButtonRef = React.useRef(null);
     const open = Boolean(anchorEl);
     // Resolved against the live prop on every render, so handlers are never stale.
-    const selectedOption = (_a = buttonConfigs.find((config) => config.id === selectedOptionId)) !== null && _a !== void 0 ? _a : buttonConfigs[0];
+    const selectedOption = resolveSelectedOption(buttonConfigs, selectedOptionId);
     // load saved option from local storage
     useEffect(() => {
         const savedOptionId = localStorage.getItem(localStorageKey);
         // check if value matches one of the button configs
-        if (savedOptionId && buttonConfigs.some((config) => config.id === savedOptionId)) {
+        if (isRestorableOptionId(buttonConfigs, savedOptionId)) {
             setSelectedOptionId(savedOptionId);
         }
     }, [localStorageKey, buttonConfigs]);
