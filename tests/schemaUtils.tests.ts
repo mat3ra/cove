@@ -33,12 +33,12 @@ describe("UISchema", () => {
 
     it("composes allOf.$ref schemas from registry", () => {
         const registry: UISchemaRegistry = {
-            "base": {
+            base: {
                 properties: {
                     ppn: { "ui:widget": "updown" },
                 },
             },
-            "extra": {
+            extra: {
                 properties: {
                     queue: { "ui:widget": "select" },
                 },
@@ -70,9 +70,8 @@ describe("resolveUISchema", () => {
     });
 
     it("throws for unknown schema ID", () => {
-        assert.throws(
-            () => resolveUISchema("nonexistent", {}),
-            { message: "UI Schema is not found for ID: nonexistent" },
-        );
+        assert.throws(() => resolveUISchema("nonexistent", {}), {
+            message: "UI Schema is not found for ID: nonexistent",
+        });
     });
 });
