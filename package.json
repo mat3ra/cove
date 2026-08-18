@@ -10,7 +10,8 @@
         "prepare": "husky install",
         "test": "npm run lint && npm run transpile",
         "dev:standalone": "vite",
-        "build:standalone": "vite build"
+        "build:standalone": "vite build",
+        "prepublishOnly": "npm run transpile"
     },
     "repository": {
         "type": "git",
