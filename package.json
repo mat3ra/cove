@@ -10,7 +10,8 @@
         "prepare": "husky install",
         "test": "npm run lint && npm run transpile",
         "dev:standalone": "vite",
-        "build:standalone": "vite build"
+        "build:standalone": "vite build",
+        "prepublishOnly": "npm run transpile"
     },
     "repository": {
         "type": "git",
@@ -84,8 +85,8 @@
         "@emotion/react": "^11.14.0",
         "@emotion/styled": "^11.14.1",
         "@exabyte-io/eslint-config": "2025.5.13-0",
-        "@mat3ra/code": "2024.10.4-0",
-        "@mat3ra/esse": "2024.12.19-1",
+        "@mat3ra/code": "2026.8.18-0",
+        "@mat3ra/esse": "2026.8.18-2",
         "@mui/icons-material": "^5.16.14",
         "@mui/lab": "^5.0.0-alpha.175",
         "@mui/material": "^5.16.14",
