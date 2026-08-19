@@ -97,12 +97,6 @@ class FakePyodide {
 
 const WHEEL = "example_package-1.0.0-py3-none-any.whl";
 
-class StagingSession extends PyodideSession {
-    async stage(filenames: string[]): Promise<void> {
-        await this.stageWheels(filenames);
-    }
-}
-
 const makeSpec = () => ({
     indexUrl: "https://cdn.example/pyodide/v0.24.0/full/",
     loadPackages: ["numpy"],
@@ -202,14 +196,14 @@ describe("PyodideSession.initialize", () => {
 
     it("can stage wheels for a package-owned installer without installing them", async () => {
         const fetchCalls = stubFetch({ ok: true });
-        const session = new StagingSession({
+        const session = new PyodideSession({
             ...makeSpec(),
             wheelFilenames: [],
         });
         const fake = new FakePyodide();
 
         await session.initialize(fake);
-        await session.stage([WHEEL]);
+        await session.stageWheels([WHEEL]);
 
         assert.deepEqual(fetchCalls, [
             `https://wheels.example/repl-wheels/${WHEEL} cache=force-cache`,
@@ -221,14 +215,14 @@ describe("PyodideSession.initialize", () => {
 
     it("fetches independently staged wheels concurrently", async () => {
         const fetchResolvers = deferredFetch();
-        const session = new StagingSession({
+        const session = new PyodideSession({
             ...makeSpec(),
             wheelFilenames: [],
         });
         const fake = new FakePyodide();
 
         await session.initialize(fake);
-        const staging = session.stage(["first.whl", "second.whl"]);
+        const staging = session.stageWheels(["first.whl", "second.whl"]);
         await new Promise((resolve) => setTimeout(resolve, 0));
 
         assert.equal(fetchResolvers.length, 2);
@@ -289,31 +283,65 @@ describe("PyodideSession.initialize", () => {
 });
 
 describe("PyodideSession.execute", () => {
-    it("awaits beforeExecute and afterExecute around every user run", async () => {
+    it("awaits beforeRun and afterRun around every user run", async () => {
         stubFetch({ ok: true });
-        class HookSession extends PyodideSession {
-            events: string[] = [];
-
-            protected beforeExecute(): void {
-                this.events.push("before");
-            }
-
-            protected afterExecute(): void {
-                this.events.push("after");
-            }
-        }
-        const session = new HookSession(makeSpec());
+        const events: string[] = [];
+        const session = new PyodideSession({
+            ...makeSpec(),
+            beforeRun: () => {
+                events.push("before");
+            },
+            afterRun: () => {
+                events.push("after");
+            },
+        });
         const fake = new FakePyodide();
         const originalRun = fake.runPythonAsync.bind(fake);
         fake.runPythonAsync = async (code: string) => {
-            session.events.push("execute");
+            events.push("execute");
             await originalRun(code);
         };
         await session.initialize(fake);
 
         await session.execute("1 + 1");
 
-        assert.deepEqual(session.events, ["before", "execute", "after"]);
+        assert.deepEqual(events, ["before", "execute", "after"]);
+        session.dispose();
+    });
+
+    it("still runs afterRun when user code raises, so results are not lost", async () => {
+        stubFetch({ ok: true });
+        const events: string[] = [];
+        const session = new PyodideSession({
+            ...makeSpec(),
+            afterRun: () => {
+                events.push("after");
+            },
+        });
+        const fake = new FakePyodide();
+        fake.lastError = { ename: "ValueError", evalue: "boom", traceback: "..." };
+        await session.initialize(fake);
+
+        const result = await session.execute("raise ValueError('boom')");
+
+        assert.equal(result.ok, false);
+        assert.deepEqual(events, ["after"]);
+        session.dispose();
+    });
+
+    it("runs setupNamespace once the environment is built, before reporting ready", async () => {
+        stubFetch({ ok: true });
+        const seen: boolean[] = [];
+        const session = new PyodideSession({
+            ...makeSpec(),
+            setupNamespace: () => {
+                seen.push(session.isInitialized);
+            },
+        });
+        await session.initialize(new FakePyodide());
+
+        assert.deepEqual(seen, [false], "setupNamespace must run before isInitialized flips");
+        assert.equal(session.isInitialized, true);
         session.dispose();
     });
 

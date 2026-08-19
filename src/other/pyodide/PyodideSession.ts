@@ -34,6 +34,20 @@ export interface PyodideEnvironmentSpec {
     postWheelPackages?: string[];
     wheelBaseUrl?: string;
     wheelFsDir?: string;
+
+    /**
+     * Domain setup, run once after the environment is built and before the session reports itself
+     * initialized. This is where a caller imports its own preamble or installs extra packages.
+     */
+    setupNamespace?: (pyodide: Pyodide, log: (message: string) => void) => Promise<void> | void;
+    /** Runs before each {@link PyodideSession.execute}, e.g. to push host data into the namespace. */
+    beforeRun?: (pyodide: Pyodide) => Promise<void> | void;
+    /**
+     * Runs after user code, successful or not, while the persistent namespace is still current —
+     * e.g. to read results back out. Deliberately also runs for a failed run: code that raised
+     * halfway may still have produced results worth syncing.
+     */
+    afterRun?: (pyodide: Pyodide) => Promise<void> | void;
 }
 
 export interface PythonSessionInterface {
@@ -88,8 +102,10 @@ function releaseInterpreter(session: PyodideSession): void {
 
 /**
  * Runs code in a PERSISTENT namespace, so it behaves like a REPL rather than a series of one-shot
- * scripts. Domain setup goes in a subclass via {@link bootstrapNamespace} / {@link beforeExecute};
- * completions need Jedi in the spec's package lists.
+ * scripts. Domain setup is passed in as {@link PyodideEnvironmentSpec.setupNamespace} /
+ * `beforeRun` / `afterRun` rather than subclassed, so a caller's wiring reads in one place and this
+ * class keeps no protected surface for another package to depend on. Completions need Jedi in the
+ * spec's package lists.
  *
  * Browser-side there can be only one live instance — see {@link sessionOwningTheInterpreter}.
  */
@@ -102,7 +118,7 @@ export class PyodideSession implements PythonSessionInterface {
 
     private outputBuffer = "";
 
-    protected spec: PyodideEnvironmentSpec;
+    private spec: PyodideEnvironmentSpec;
 
     constructor(spec: PyodideEnvironmentSpec) {
         this.spec = { wheelFsDir: "/tmp/pyodide_wheels", ...spec };
@@ -116,16 +132,23 @@ export class PyodideSession implements PythonSessionInterface {
         return this.running;
     }
 
-    protected get py(): Pyodide {
-        return this.pyodide;
-    }
-
     /** Point wheel fetches at a host app's own server. Must precede {@link load}. */
     setWheelBaseUrl(wheelBaseUrl: string): void {
         if (this.initialized) {
             throw new Error("PyodideSession: wheel base URL cannot change after initialization.");
         }
         this.spec.wheelBaseUrl = wheelBaseUrl.replace(/\/$/, "");
+    }
+
+    /**
+     * Set the prebuilt wheels to install. Separate from the constructor because a caller often only
+     * learns the filenames after fetching its own manifest. Must precede {@link load}.
+     */
+    setWheelFilenames(wheelFilenames: string[]): void {
+        if (this.initialized) {
+            throw new Error("PyodideSession: wheel filenames cannot change after initialization.");
+        }
+        this.spec.wheelFilenames = wheelFilenames;
     }
 
     /** Idempotent; reuses a cached `window.pyodide`. Browser-only (touches window/document). */
@@ -181,7 +204,7 @@ export class PyodideSession implements PythonSessionInterface {
 
         pyodide.runPython(PY_DEFINE_RUNNER);
         pyodide.runPython(PY_DEFINE_COMPLETER);
-        await this.bootstrapNamespace(log);
+        await this.spec.setupNamespace?.(this.pyodide, log);
         this.initialized = true;
     }
 
@@ -209,8 +232,8 @@ export class PyodideSession implements PythonSessionInterface {
         return fsPath;
     }
 
-    /** Make wheels available to a domain installer without installing them here. */
-    protected async stageWheels(
+    /** Make wheels available to a caller's own installer without installing them here. */
+    async stageWheels(
         wheelFilenames: string[],
         log: (message: string) => void = () => undefined,
     ): Promise<void> {
@@ -241,24 +264,6 @@ export class PyodideSession implements PythonSessionInterface {
         );
     }
 
-    /** Runs after the environment is built, before the session reports itself initialized. */
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars, class-methods-use-this
-    protected async bootstrapNamespace(log: (message: string) => void): Promise<void> {
-        // no domain setup by default
-    }
-
-    /** Runs before each {@link execute}. */
-    // eslint-disable-next-line class-methods-use-this
-    protected beforeExecute(): void | Promise<void> {
-        // nothing by default
-    }
-
-    /** Runs after successful or failed user code, while the persistent namespace is still current. */
-    // eslint-disable-next-line class-methods-use-this
-    protected afterExecute(): void | Promise<void> {
-        // nothing by default
-    }
-
     /**
      * The traceback comes back separately rather than in stdout, so a UI can render it distinctly.
      * Rejects overlapping runs.
@@ -269,11 +274,11 @@ export class PyodideSession implements PythonSessionInterface {
         this.running = true;
         this.outputBuffer = "";
         try {
-            await this.beforeExecute();
+            await this.spec.beforeRun?.(this.pyodide);
             this.pyodide.globals.set("_repl_src", code);
             // The runner catches user errors internally, so this only rejects on infra failures.
             await this.pyodide.runPythonAsync("await _repl_execute(_repl_src)");
-            await this.afterExecute();
+            await this.spec.afterRun?.(this.pyodide);
             return { ok: !this.lastError, output: this.outputBuffer, error: this.lastError };
         } finally {
             this.running = false;
@@ -335,7 +340,7 @@ export class PyodideSession implements PythonSessionInterface {
         this.initialized = false;
     }
 
-    protected assertReady(): void {
+    private assertReady(): void {
         if (!this.initialized) throw new Error("PyodideSession is not initialized.");
     }
 }
