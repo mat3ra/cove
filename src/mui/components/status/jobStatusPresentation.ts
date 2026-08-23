@@ -1,0 +1,58 @@
+import type { StatusToneName } from "../../../theme/palette";
+
+/**
+ * How a job status is presented: which palette tone carries it, which icon
+ * stands in for it, and what the reader is actually told.
+ *
+ * This lives in cove so that every surface showing job state — the entity
+ * header, a readiness rail, unit rows, a run monitor — agrees. Before it, the
+ * mapping was duplicated and the copies had already drifted: `@mat3ra/jode`
+ * ships both `JOB_STATUS_CLS()` and a `Job.statusCls` getter, and they disagree
+ * about `pre-submission` (`info` vs `default`). Neither covered
+ * `terminate-queued`, `timeout` or `deleted` with anything but a default, and
+ * neither carried an icon or a human label at all.
+ *
+ * Status strings are the values of `JobStatus` in `@mat3ra/jode`. They are
+ * repeated here rather than imported because cove sits *below* jode in the
+ * dependency graph; `tests/jobStatusPresentation.tests.ts` guards the list.
+ */
+export interface JobStatusPresentation {
+    /** Palette tone; resolves to `theme.palette.statusTones[tone]`. */
+    tone: StatusToneName;
+    /** `IconByName` key. Status is never conveyed by color alone. */
+    iconName: string;
+    /** Short human label. Not the raw status string. */
+    label: string;
+}
+
+export const JOB_STATUS_PRESENTATION: Record<string, JobStatusPresentation> = {
+    // Not started. Neutral rather than informational: a draft is an absence of
+    // state, not something to tell the reader about. (Resolves the jode
+    // divergence noted above in favour of `Job.statusCls`'s "default".)
+    "pre-submission": { tone: "neutral", iconName: "actions.edit", label: "Draft" },
+    queued: { tone: "info", iconName: "shapes.loop", label: "Queued" },
+    submitted: { tone: "primary", iconName: "actions.send", label: "Submitted" },
+    active: { tone: "warning", iconName: "actions.play", label: "Running" },
+    finished: { tone: "success", iconName: "shapes.check", label: "Finished" },
+    "terminate-queued": { tone: "warning", iconName: "actions.pause", label: "Stopping" },
+    terminated: { tone: "neutral", iconName: "actions.terminate", label: "Terminated" },
+    timeout: { tone: "warning", iconName: "actions.terminate", label: "Timed out" },
+    error: { tone: "error", iconName: "actions.cancel", label: "Error" },
+    deleted: { tone: "neutral", iconName: "actions.delete", label: "Deleted" },
+};
+
+const UNKNOWN_STATUS_PRESENTATION: JobStatusPresentation = {
+    tone: "neutral",
+    iconName: "shapes.circle",
+    label: "Unknown",
+};
+
+/**
+ * Resolves a job status string to its presentation, falling back to a neutral
+ * "Unknown" rather than throwing — a status the UI has not seen before should
+ * render as an honest unknown, not crash the page that shows it.
+ */
+export function getJobStatusPresentation(status?: string | null): JobStatusPresentation {
+    if (!status) return UNKNOWN_STATUS_PRESENTATION;
+    return JOB_STATUS_PRESENTATION[status] ?? UNKNOWN_STATUS_PRESENTATION;
+}
