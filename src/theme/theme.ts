@@ -1,7 +1,7 @@
 import { createTheme, Theme } from "@mui/material/styles";
 
 import { buttons, chips, cssBaseline, icons, inputs, tooltips } from "./components";
-import { paletteDark, paletteLight } from "./palette";
+import { designerDark, designerLight, paletteDark, paletteLight } from "./palette";
 import shadows from "./shadows";
 import { MDTypography, typography } from "./typography";
 
@@ -63,6 +63,7 @@ const darkThemePrototype = createTheme({ palette: { ...paletteDark, mode: "dark"
 const patchTheme = (theme: Theme, typography: any) => {
     return createTheme(theme, {
         ...commonSettings,
+        designer: theme.palette.mode === "dark" ? designerDark : designerLight,
         typography: typography(theme, commonSettings),
         shadows: shadows(theme),
         components: {
