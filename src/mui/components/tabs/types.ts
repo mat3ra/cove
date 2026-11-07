@@ -11,4 +11,5 @@ export interface TabItem {
     dataName?: string | number;
     labelIsEditable?: boolean;
     onLabelChange?: (newLabel: string) => void;
+    onDelete?: () => void;
 }

@@ -68,6 +68,27 @@ function MenuTabTextField({
     );
 }
 
+function renderTabLabel(tab: TabItem) {
+    const { onDelete } = tab;
+    if (!onDelete) return tab.itemName;
+    return (
+        <>
+            {tab.itemName}
+            <IconByName
+                name="actions.delete"
+                fontSize="small"
+                sx={{ ml: 1 }}
+                onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onDelete();
+                }}
+                onDoubleClick={(event) => event.stopPropagation()}
+            />
+        </>
+    );
+}
+
 export default function TabsMenu({
     tabs,
     activeTabIndex,
@@ -165,7 +186,7 @@ export default function TabsMenu({
                                         tab.iconCls ? <IconByName name={tab.iconCls} /> : undefined
                                     }
                                     iconPosition="start"
-                                    label={tab.itemName}
+                                    label={renderTabLabel(tab)}
                                     href={tab.href}
                                     onClick={(event) => handleTabClick(tab, event)}
                                     onDoubleClick={() => onOpenEditor(tab)}
@@ -193,7 +214,7 @@ export default function TabsMenu({
                             data-tab-name={tab.dataName || tab.itemName}
                             icon={tab.iconCls ? <IconByName name={tab.iconCls} /> : undefined}
                             iconPosition="start"
-                            label={tab.itemName}
+                            label={renderTabLabel(tab)}
                             href={tab.href}
                             onClick={(event) => handleTabClick(tab, event)}
                             onDoubleClick={() => onOpenEditor(tab)}
