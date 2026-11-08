@@ -77,7 +77,12 @@ function renderTabLabel(tab: TabItem) {
             <IconByName
                 name="actions.delete"
                 fontSize="small"
-                sx={{ ml: 1 }}
+                tabIndex={0}
+                sx={{
+                    ml: 1,
+                    color: "text.disabled",
+                    "&:hover, &:focus-visible": { color: "error.main" },
+                }}
                 onClick={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
