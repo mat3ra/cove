@@ -42,11 +42,16 @@ export interface CodeMirrorState {
 
 // TODO: add `StatefulEntityMixin` to update the state of content and checks
 class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
+    // `state.isEditing` is set by a batched update, so it lags a focus by one render: an edit made
+    // in the same tick as the focus (React 18, or a test) would be dropped. This field is set at once.
+    private isFocused = false;
+
     constructor(props: CodeMirrorProps) {
         super(props);
         this.state = {
             content: props.content || "",
             checks: props.checks,
+            // eslint-disable-next-line react/no-unused-state -- read through a ref by BasisText (materials-designer)
             isEditing: false,
         };
         this.handleContentChange = this.handleContentChange.bind(this);
@@ -74,10 +79,15 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
     }
 
     handleContentChange(newContent: string) {
-        const { isEditing } = this.state;
         const { updateContent } = this.props;
-        if (isEditing && updateContent) updateContent(newContent);
+        if (this.isFocused && updateContent) updateContent(newContent);
         this.setState({ content: newContent });
+    }
+
+    setIsEditing(isEditing: boolean) {
+        this.isFocused = isEditing;
+        // eslint-disable-next-line react/no-unused-state -- read through a ref by BasisText (materials-designer)
+        this.setState({ isEditing });
     }
 
     createExtensions(): Extension[] {
@@ -113,8 +123,8 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
                 onChange={(value: string) => {
                     this.handleContentChange(value);
                 }}
-                onFocus={() => this.setState({ isEditing: true })}
-                onBlur={() => this.setState({ isEditing: false })}
+                onFocus={() => this.setIsEditing(true)}
+                onBlur={() => this.setIsEditing(false)}
                 basicSetup={options}
                 theme={theme || "light"}
                 extensions={extensions}
