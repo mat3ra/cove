@@ -45,6 +45,10 @@ export interface CodeMirrorState {
 
 // TODO: add `StatefulEntityMixin` to update the state of content and checks
 class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
+    // `state.isEditing` is set by a batched update, so it lags a focus by one render: an edit made
+    // in the same tick as the focus (React 18, or a test) would be dropped. This field is set at once.
+    private isFocused = false;
+
     // Keystrokes stay in local state; the parent is told at most once per interval, so its
     // re-render cascade cannot run per character.
     debouncedUpdateContent = debounce((newContent: string) => {
@@ -97,9 +101,13 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
     }
 
     handleContentChange(newContent: string) {
-        const { isEditing } = this.state;
-        if (isEditing) this.debouncedUpdateContent(newContent);
+        if (this.isFocused) this.debouncedUpdateContent(newContent);
         this.setState({ content: newContent });
+    }
+
+    setIsEditing(isEditing: boolean) {
+        this.isFocused = isEditing;
+        this.setState({ isEditing });
     }
 
     createExtensions(): Extension[] {
@@ -137,10 +145,10 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
             <CodeMirrorBase
                 value={content}
                 onChange={this.handleContentChange}
-                onFocus={() => this.setState({ isEditing: true })}
+                onFocus={() => this.setIsEditing(true)}
                 onBlur={() => {
                     this.debouncedUpdateContent.flush();
-                    this.setState({ isEditing: false });
+                    this.setIsEditing(false);
                 }}
                 basicSetup={options}
                 theme={theme || "light"}
