@@ -10,9 +10,12 @@ import { linter, lintGutter } from "@codemirror/lint";
 import { Extension } from "@codemirror/state";
 import { ConsistencyCheck } from "@mat3ra/esse/dist/js/types";
 import CodeMirrorBase, { BasicSetupOptions } from "@uiw/react-codemirror";
+import debounce from "lodash/debounce";
 import React from "react";
 
 import { linterGenerator } from "./utils/linterGenerator";
+
+const UPDATE_CONTENT_DEBOUNCE_MS = 300;
 
 const LANGUAGE_EXTENSIONS_MAP: Record<string, Extension[]> = {
     python: [python()],
@@ -46,21 +49,36 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
     // in the same tick as the focus (React 18, or a test) would be dropped. This field is set at once.
     private isFocused = false;
 
+    // Keystrokes stay in local state; the parent is told at most once per interval, so its
+    // re-render cascade cannot run per character.
+    debouncedUpdateContent = debounce((newContent: string) => {
+        const { updateContent } = this.props;
+        updateContent?.(newContent);
+    }, UPDATE_CONTENT_DEBOUNCE_MS);
+
+    // A fresh array here reconfigures the whole editor, since @uiw/react-codemirror watches
+    // its identity, so it is rebuilt only when what it is built from changes.
+    extensions: Extension[];
+
+    extensionsInputs: unknown[];
+
     constructor(props: CodeMirrorProps) {
         super(props);
         this.state = {
             content: props.content || "",
             checks: props.checks,
-            // eslint-disable-next-line react/no-unused-state -- read through a ref by BasisText (materials-designer)
             isEditing: false,
         };
+        this.extensions = this.createExtensions();
+        this.extensionsInputs = [props.language, props.completions, props.checks];
         this.handleContentChange = this.handleContentChange.bind(this);
     }
 
     UNSAFE_componentWillReceiveProps(nextProps: CodeMirrorProps) {
         const { content, checks } = this.props;
+        const { isEditing } = this.state;
         const update = {};
-        if (nextProps.content !== content) {
+        if (!isEditing && nextProps.content !== content) {
             Object.assign(update, { content: nextProps.content || "" });
         }
         if (nextProps.checks !== checks) {
@@ -78,15 +96,17 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
         return content !== nextContent || checks !== nextChecks;
     }
 
+    componentWillUnmount() {
+        this.debouncedUpdateContent.flush();
+    }
+
     handleContentChange(newContent: string) {
-        const { updateContent } = this.props;
-        if (this.isFocused && updateContent) updateContent(newContent);
+        if (this.isFocused) this.debouncedUpdateContent(newContent);
         this.setState({ content: newContent });
     }
 
     setIsEditing(isEditing: boolean) {
         this.isFocused = isEditing;
-        // eslint-disable-next-line react/no-unused-state -- read through a ref by BasisText (materials-designer)
         this.setState({ isEditing });
     }
 
@@ -113,21 +133,26 @@ class CodeMirror extends React.Component<CodeMirrorProps, CodeMirrorState> {
     }
 
     render() {
-        const { options = {}, theme, readOnly } = this.props;
-        const { content } = this.state;
-        const extensions = this.createExtensions();
+        const { options = {}, theme, readOnly, language, completions } = this.props;
+        const { content, checks } = this.state;
+        const extensionsInputs = [language, completions, checks];
+        if (extensionsInputs.some((input, index) => input !== this.extensionsInputs[index])) {
+            this.extensionsInputs = extensionsInputs;
+            this.extensions = this.createExtensions();
+        }
 
         return (
             <CodeMirrorBase
                 value={content}
-                onChange={(value: string) => {
-                    this.handleContentChange(value);
-                }}
+                onChange={this.handleContentChange}
                 onFocus={() => this.setIsEditing(true)}
-                onBlur={() => this.setIsEditing(false)}
+                onBlur={() => {
+                    this.debouncedUpdateContent.flush();
+                    this.setIsEditing(false);
+                }}
                 basicSetup={options}
                 theme={theme || "light"}
-                extensions={extensions}
+                extensions={this.extensions}
                 readOnly={readOnly}
             />
         );
