@@ -72,9 +72,42 @@ npm run lint:fix
 # compile the library
 npm run transpile
 
-# run tests
+# run tests (lint + transpile + unit tests)
 npm run test
+
+# unit tests only
+npm run test:unit
 ```
+
+## Python REPL components
+
+`src/other/pyodide` and `src/other/repl` provide a reusable in-browser Python REPL, built on
+[Pyodide](https://pyodide.org) with [Jedi](https://jedi.readthedocs.io)-backed autocompletion.
+
+| Module | Role |
+| --- | --- |
+| `PyodideSession` | Loads Pyodide, builds the environment, runs code in a **persistent** namespace |
+| `PythonRepl` | The editor + run button + console UI. Knows nothing about any domain |
+| `ReplConsole` | Output and Jupyter-shaped error rendering |
+| `pythonCompletions` | CodeMirror completion source backed by any `PythonCompletionBackend` |
+
+`PyodideSession` is domain-agnostic. To add domain behaviour, subclass it and override
+`bootstrapNamespace()` (setup after the environment is built) and/or `beforeExecute()` (runs before each
+execution) — see `MaterialsReplSession` in
+[materials-designer](https://github.com/mat3ra/materials-designer) for a worked example.
+
+Two constraints worth knowing before you use it:
+
+- **One session per page.** There is a single Pyodide interpreter per page and its packages and globals
+  are shared, so `initialize()` throws if another live session already owns it. Export a singleton
+  rather than constructing sessions on demand; call `dispose()` to hand ownership back.
+- **The environment spec is the caller's job.** `PyodideEnvironmentSpec` takes the Pyodide `indexUrl`,
+  the package lists and any prebuilt wheels, in install order (pinned deps → wheels with `deps=False` →
+  post-wheel packages). Wheels are fetched by the consumer's own host; nothing is bundled here.
+  Autocompletion requires `jedi` to be in one of the package lists.
+
+`initialize(pyodide)` accepts an already-loaded interpreter, which is how the unit tests exercise the
+install ordering and wheel handling without a WASM runtime — see `tests/pyodideSession.tests.ts`.
 
 ## Using Linter
 

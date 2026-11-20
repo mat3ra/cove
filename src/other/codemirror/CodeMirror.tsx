@@ -18,6 +18,7 @@ import { linterGenerator } from "./utils/linterGenerator";
 const UPDATE_CONTENT_DEBOUNCE_MS = 300;
 
 const LANGUAGE_EXTENSIONS_MAP: Record<string, Extension[]> = {
+    text: [],
     python: [python()],
     shell: [StreamLanguage.define(shell)],
     fortran: [StreamLanguage.define(fortran)],

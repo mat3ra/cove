@@ -56,6 +56,8 @@ const commonSettings = {
 
 export type CommonSettings = typeof commonSettings;
 
+export { commonSettings };
+
 const lightThemePrototype = createTheme({ palette: { ...paletteLight, mode: "light" } });
 const darkThemePrototype = createTheme({ palette: { ...paletteDark, mode: "dark" } });
 
